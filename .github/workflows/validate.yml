@@ -1,0 +1,29 @@
+name: validate-routeros-stack
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Make tools executable
+        run: chmod +x tools/*.sh
+      - name: Static safety validation
+        run: ./tools/validate-repo.sh
+      - name: Block secrets and private keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude='*.md' '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|private-key[=:][[:space:]]*[^$<]|password[=:][[:space:]]*[^$<{])' .; then
+            echo 'Potential embedded secret/private key found.' >&2
+            exit 1
+          fi

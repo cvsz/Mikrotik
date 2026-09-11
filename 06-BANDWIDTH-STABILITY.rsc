@@ -1,3 +1,3 @@
-:log warning "PHASE 06 BANDWIDTH"
-/queue simple add name=GLOBAL target=bridge-lan max-limit=950M/475M queue=fq-codel/fq-codel
-:log warning "PHASE 06 DONE"
+# DEPRECATED LEGACY PHASE
+# Historical fixed 950M/475M shaping has not been revalidated against the current uplink and traffic profile.
+:error "DEPRECATED: measure current WAN first, then add shaping as a separately reviewed change"
