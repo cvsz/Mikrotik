@@ -1,22 +1,13 @@
 # OMEGA / Codex RouterOS Production Rules
 
-Repository target: cvsz/Mikrotik
-Production router: PoliceDBC
+## Real ZeaZDev environment map
+- DEV: core.zeaz.dev
+- PROD: prod.zeaz.dev
+- SSH user for both: zeazdev
 
-## Mandatory behavior
-- Audit before mutation.
-- Back up/export before mutation.
-- Use RouterOS import dry-run before apply.
-- Use Safe Mode for production changes.
-- Preserve current management access.
-- Prefer idempotent find/set/add-if-missing logic.
-- Never run destructive clean-all logic against production.
-- Never rotate WireGuard keys without explicit operator approval.
-- Never change WAN/default route unless the task explicitly requires it.
-- Never disable both SSH and WinBox.
-- Do not migrate the production LAN away from 192.168.1.0/24 without an explicit migration plan.
+Do not invent or reintroduce the old DBC hostname in new configuration.
 
-## Current production constants
+## PoliceDBC production constants
 - WAN interface: ether1
 - WAN IP: 192.168.205.251/21
 - WAN gateway: 192.168.200.1
@@ -25,7 +16,20 @@ Production router: PoliceDBC
 - DHCP pool: 192.168.1.50-192.168.1.199
 - WireGuard interface: wg-remote
 - WireGuard router address: 10.8.0.1/24
-- WireGuard CORE peer: 10.8.0.2/32
+- DEV/CORE peer: 10.8.0.2/32
 - WireGuard port: 51820
 
-All generated production changes must preserve recovery access and be individually reviewable.
+## Mandatory behavior
+- Audit before mutation.
+- Back up/export before mutation.
+- Dry-run imports before apply.
+- Use Safe Mode for production changes.
+- Preserve current management access.
+- Prefer idempotent changes.
+- Never factory-reset production.
+- Never delete all firewall/NAT/IP/interface state.
+- Never rotate WireGuard keys without explicit approval.
+- Never change WAN/default route unless explicitly required.
+- Never disable both SSH and WinBox.
+- Never migrate 192.168.1.0/24 without a migration plan.
+- Keep DEV and PROD as separate environments.
