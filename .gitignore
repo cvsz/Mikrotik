@@ -1,0 +1,9 @@
+config/topology.env
+backups/
+state/
+*.backup
+*.key
+*.pem
+.env
+.env.*
+!.env.example
