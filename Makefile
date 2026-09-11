@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate status audit backup dry-run apply verify core-status core-check core-repair core-find-conflict
+.PHONY: validate status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict
 
 validate:
 	./tools/validate-repo.sh
@@ -23,6 +23,9 @@ apply:
 
 verify:
 	./tools/deploy-phases.sh verify
+
+e2e:
+	./tools/e2e-check.sh
 
 core-status:
 	./tools/core-network-repair.sh status
