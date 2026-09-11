@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily OMEGA RouterOS update check
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 Asia/Bangkok
+Persistent=true
+RandomizedDelaySec=15m
+Unit=omega-routeros-update.service
+
+[Install]
+WantedBy=timers.target
