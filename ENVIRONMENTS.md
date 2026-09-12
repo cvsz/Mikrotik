@@ -5,7 +5,7 @@
 | Environment | Endpoint | Desired automation identity | Runtime-address policy |
 |---|---|---|---|
 | DEV/controller | `core.zeaz.dev` | `zeazdev` | LAN is DHCP/runtime evidence; WG peer `10.8.0.2/32` is known |
-| PROD | `prod.zeaz.dev` | `zeazdev` | LAN/WG addresses remain unset until verified |
+| PROD | `prod.zeaz.dev` | `zeazdev` | LAN `192.168.1.122` verified; WG remains unset until verified |
 | CI runner VM | `zeaz` | `zOS-Runner` | Windows x64; trusted GitHub Actions execution surface only |
 
 The desired automation identity is a target configuration, not proof that the account already exists on every host. Existing operator/recovery accounts are valid when explicitly selected and secured.
@@ -48,7 +48,7 @@ default via 192.168.1.1 dev ens33
 
 ## Address certainty
 
-`config/topology.env.example` is a contract/template, not runtime evidence. DEV LAN addressing is intentionally not hard-coded because DHCP may change it. `PROD_LAN_IP` and `PROD_WG_IP` remain empty until independently verified.
+`config/topology.env.example` is a contract/template, not runtime evidence. DEV LAN addressing is intentionally not hard-coded because DHCP may change it. PROD LAN is now recorded as `192.168.1.122`; `PROD_WG_IP` remains empty until independently verified.
 
 ## Future overlay design
 

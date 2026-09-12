@@ -12,6 +12,7 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 - Removed transient DEV DHCP addressing from the canonical example contract.
 - Added root, CORE, zOS, and Windows runner VM `.env.example` templates with fail-closed defaults and documented loading/secret-handling rules.
 - Added the `zeaz` Windows VM / `zOS-Runner` environment contract and runner-local documentation.
+- Recorded PROD LAN address `192.168.1.122` and added a fail-closed `prod/.env.example` plus read-only discovery guidance.
 
 ### CORE recovery/hardening
 - Added fail-closed OpenSSH bootstrap/recovery for CORE.

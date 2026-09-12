@@ -25,6 +25,7 @@ The repository includes four example surfaces:
 | `config/topology.env.example` | canonical topology and zOS safety/update policy |
 | `core/.env.example` | `core/install.sh` recovery/bootstrap options |
 | `zOS/.env.example` | zOS runtime/update-policy options |
+| `prod/.env.example` | production-host identity and fail-closed bootstrap reference |
 
 Only `config/topology.env` is the normal topology runtime file. The other `.env` templates are not auto-loaded; source/export them explicitly only when needed.
 
@@ -63,6 +64,28 @@ sudo ./core/install.sh
 ~~~
 
 The secure default requires a preinstalled public key for the selected SSH user. See `core/README.md` and `docs/SSH-HARDENING.md`.
+
+## PROD discovery/bootstrap
+
+The PROD LAN address is now recorded as `192.168.1.122`. Before creating or applying a production installer profile, keep unknown network facts blank and collect read-only evidence:
+
+~~~bash
+hostnamectl
+ip -br link
+ip -br addr
+ip route
+ip rule
+resolvectl status 2>/dev/null || true
+wg show 2>/dev/null || true
+ss -lntup
+lsblk -f
+df -hT
+free -h
+uname -a
+cat /etc/os-release
+~~~
+
+See `prod/README.md` and `prod/.env.example`.
 
 ## Router credentials
 

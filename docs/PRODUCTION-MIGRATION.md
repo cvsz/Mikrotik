@@ -36,6 +36,12 @@ The old PPPoE / `192.168.10.0/24` / alternate WireGuard clean-slate design must 
 
 Every migration step remains subject to backup, dry-run, recovery/Safe Mode, explicit live-apply approval, and post-change verification.
 
-## Unknown production host addressing
+## Production host addressing
 
-Do not populate PROD LAN/WG values until independently observed. Migration documentation must not turn design targets into claims of deployed state.
+Verified PROD LAN address:
+
+~~~text
+prod.zeaz.dev -> 192.168.1.122
+~~~
+
+`PROD_WG_IP` remains unknown and must not be populated until independently observed. Migration documentation must not turn design targets into claims of deployed state.

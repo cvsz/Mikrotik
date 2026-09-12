@@ -23,8 +23,8 @@ required=(
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
   docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
-  .env.example core/.env.example zOS/.env.example runner/.env.example config/topology.env.example
-  runner/README.md
+  .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
+  runner/README.md prod/README.md
   tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh
@@ -65,6 +65,10 @@ grep -q 'wg-remote' 00-PRECHECK.rsc || err 'precheck missing current WireGuard i
 grep -q 'core.zeaz.dev' ENVIRONMENTS.md || err 'canonical DEV FQDN missing'
 grep -q 'prod.zeaz.dev' ENVIRONMENTS.md || err 'canonical PROD FQDN missing'
 grep -q '^DEV_LAN_IP=$' config/topology.env.example || err 'DEV LAN example must remain unset because CORE LAN is DHCP/runtime evidence'
+grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'verified PROD LAN address missing from topology contract'
+grep -q '^PROD_LAN_IP=192\.168\.1\.122$' prod/.env.example || err 'verified PROD LAN address missing from prod env template'
+grep -q '^PROD_ALLOW_PASSWORD=no$' prod/.env.example || err 'PROD SSH password authentication must fail closed in template'
+grep -q '^PROD_ALLOW_DEPLOY=0$' prod/.env.example || err 'PROD live deploy must fail closed in template'
 grep -q '^OMEGA_ALLOW_LIVE_APPLY=0$' .env.example || err 'root .env.example must fail closed for live apply'
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' .env.example || err 'root .env.example must fail closed for auto update'
 grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' .env.example || err 'root .env.example must fail closed for router reboot'
