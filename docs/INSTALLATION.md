@@ -15,6 +15,32 @@ chmod 600 config/topology.env
 
 Review the topology file before using it. Empty/unknown addresses must remain empty until verified.
 
+## Environment templates
+
+The repository includes four example surfaces:
+
+| Template | Purpose |
+|---|---|
+| `.env.example` | optional shell/IDE/operator overrides |
+| `config/topology.env.example` | canonical topology and zOS safety/update policy |
+| `core/.env.example` | `core/install.sh` recovery/bootstrap options |
+| `zOS/.env.example` | zOS runtime/update-policy options |
+
+Only `config/topology.env` is the normal topology runtime file. The other `.env` templates are not auto-loaded; source/export them explicitly only when needed.
+
+Example for CORE overrides:
+
+~~~bash
+cp core/.env.example core/.env
+# edit core/.env, then:
+set -a
+source core/.env
+set +a
+sudo --preserve-env=LAN_IFACE,WG_IFACE,LAN_CIDR,GW,SSH_PORT,SSH_ALLOW_PASSWORD,SSH_USER ./core/install.sh
+~~~
+
+Real `.env` files are ignored by Git. Never place passwords, access tokens, SSH/WireGuard private keys, or populated production secrets in an example file.
+
 ## Install controller tooling
 
 ~~~bash
