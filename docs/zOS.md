@@ -1,17 +1,18 @@
 # zOS Operations
 
-zOS is the ZeaZDev management layer for MikroTik RouterOS. It runs on `core.zeaz.dev`; RouterOS remains on the RB4011.
+zOS is the ZeaZDev management/control layer for MikroTik RouterOS. It runs on `core.zeaz.dev`; RouterOS remains on the RB4011.
 
 ## Design goals
 
-- fail closed
-- idempotent RouterOS changes
-- backup before mutation
-- dry-run before mutation
-- Safe Mode for production mutation
-- explicit reboot/update gates
-- auditable evidence after every change
-- DEV and PROD separation
+- fail closed;
+- idempotent changes;
+- audit and backup before mutation;
+- dry-run before mutation;
+- recovery access/Safe Mode for risky production work;
+- explicit live-apply and reboot/update gates;
+- auditable evidence;
+- DEV/PROD separation;
+- no secrets in source control.
 
 ## Install
 
@@ -21,7 +22,7 @@ chmod +x zOS/install.sh zOS/bin/zos tools/*.sh
 zos doctor
 ```
 
-## Daily operation
+## Daily/read-only operation
 
 ```bash
 zos status
@@ -35,16 +36,20 @@ zos verify
 ```bash
 zos backup
 zos plan
-# Enter RouterOS Safe Mode manually from a recovery-capable session.
+# Enter RouterOS Safe Mode manually from a recovery-capable session when appropriate.
 export OMEGA_ALLOW_LIVE_APPLY=1
 zos apply
 zos verify
 zos e2e
 ```
 
+## RouterOS REST verification
+
+A synchronous RouterOS `/rest/execute` request may return HTTP 200 even when the command is rejected. zOS integrations must validate response content and, for important changes, verify resulting state independently.
+
 ## RouterOS update automation
 
-Safe default is notification-only:
+Safe default:
 
 ```env
 ROUTEROS_UPDATE_CHANNEL=stable
@@ -53,21 +58,32 @@ OMEGA_ALLOW_ROUTER_REBOOT=0
 ROUTEROS_UPDATE_NOTIFY_URL=https://prod.zeaz.dev/api/infra/routeros-update
 ```
 
-Unattended installation is deliberately double-gated:
+The notify URL is a configured target, not proof that an endpoint is deployed.
+
+Unattended install requires both explicit gates:
 
 ```env
 OMEGA_AUTO_ROUTEROS_UPDATE=1
 OMEGA_ALLOW_ROUTER_REBOOT=1
 ```
 
-Before install, zOS creates a backup and runs health verification. RouterOS then performs its package install/reboot. zOS waits for the router to return and runs post-update verification, then reports the resulting version to the configured server endpoint.
+The intended sequence is backup → pre-update verification → install/reboot → wait for return → post-update verification → report result.
 
 ## Package
 
-The GitHub Actions `build-zos` workflow produces:
+The `build-zos` workflow produces:
 
 - `zos-mikrotik-<version>.tar.gz`
 - SHA-256 checksum
-- multi-architecture OCI image: `ghcr.io/cvsz/mikrotik-zos`
+- multi-architecture OCI image `ghcr.io/cvsz/mikrotik-zos`
 
-The OCI image is intended for the controller/server side, not as a replacement RouterOS firmware image.
+The image runs on the controller/server side; it is not RouterOS firmware.
+
+## CI surfaces
+
+- `validate-routeros-stack`: repository/static/safety validation
+- `build-zos`: build/artifact/GHCR path
+- `zOS RouterOS Skills Validation`: RouterOS skill validation on GitHub-hosted Windows
+- optional manual self-hosted probe for `zOS-Runner`
+
+The self-hosted runner must not be used as an implicit production apply channel.
