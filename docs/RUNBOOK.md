@@ -18,6 +18,16 @@ Import the generated controller public key into the intended MikroTik management
 
 ## 2. Verify/repair CORE networking first
 
+If the CORE host needs SSH bootstrap/recovery, run:
+
+```bash
+sudo ./core/install.sh
+```
+
+The installer is deliberately conservative: it removes only the conflicting runtime `192.168.1.0/24` route from `policedbc`, refuses to continue if the gateway is not selected through `ens33`, installs/enables OpenSSH, validates `sshd`, and changes UFW only when UFW is already active. Persistent WireGuard/network-manager configuration remains operator-controlled.
+
+Then verify:
+
 ```bash
 make core-status
 make core-check
