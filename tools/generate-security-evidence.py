@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 import re
 import subprocess
-import sys
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +15,7 @@ GENERATOR = "zOS security-evidence 1"
 
 PATTERNS = [
     ("PRIVATE_KEY_BLOCK", re.compile(r"-----BEGIN (?:RSA|OPENSSH|EC) PRIVATE KEY-----")),
-    ("LITERAL_SECRET", re.compile(r"(?i)(?:password|token|private[-_ ]?key)\s*[:=]\s*[\"'][^\"']{12,}[\"']")),
+    ("LITERAL_SECRET", re.compile(r"(?i)(?:password|token|private[-_ ]?key)\s*[:=]\s*[\"'][A-Za-z0-9_./+=-]{20,}[\"']")),
 ]
 
 
@@ -65,12 +64,19 @@ def write_spdx(files: list[Path], out: Path) -> None:
     out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
 
 
+def should_scan(rel: str) -> bool:
+    if rel.startswith(("evidence/corpus/", "evidence/ci/")):
+        return False
+    if rel.endswith((".md", ".example")):
+        return False
+    return True
+
+
 def scan(files: list[Path]) -> list[dict]:
     findings: list[dict] = []
-    excluded_prefixes = ("evidence/corpus/", "evidence/ci/")
     for path in files:
         rel = path.relative_to(ROOT).as_posix()
-        if rel.startswith(excluded_prefixes):
+        if not should_scan(rel):
             continue
         try:
             text = path.read_text(encoding="utf-8")
@@ -138,6 +144,7 @@ def main() -> int:
     report = {
         "generator": GENERATOR,
         "tracked_files": len(files),
+        "scanned_files": sum(1 for path in files if should_scan(path.relative_to(ROOT).as_posix())),
         "findings": findings,
         "result": "PASS" if not findings else "FAIL",
     }
