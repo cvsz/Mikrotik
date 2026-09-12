@@ -69,10 +69,38 @@ repair_runtime() {
 }
 
 find_persistent_conflict() {
-  echo '=== persistent references to physical LAN in WireGuard configuration ==='
-  sudo grep -RniE '192\.168\.1\.0/24|AllowedIPs|AllowedIPs[[:space:]]*=' /etc/wireguard 2>/dev/null || true
+  local conf found=0
+  local -a configs=()
+
+  echo '=== active WireGuard AllowedIPs configuration ==='
+
+  shopt -s nullglob
+  configs=(/etc/wireguard/*.conf)
+  shopt -u nullglob
+
+  if (("${#configs[@]}" == 0)); then
+    echo 'No active /etc/wireguard/*.conf files found.'
+    return 0
+  fi
+
+  for conf in "${configs[@]}"; do
+    echo "--- $conf"
+    sudo grep -nE '^[[:space:]]*AllowedIPs[[:space:]]*=' "$conf" 2>/dev/null || true
+
+    if sudo grep -E '^[[:space:]]*AllowedIPs[[:space:]]*=' "$conf" 2>/dev/null | grep -Fq "$LAN_CIDR"; then
+      echo "ERROR: physical LAN $LAN_CIDR is present in AllowedIPs in $conf" >&2
+      found=1
+    fi
+  done
+
   echo
-  echo 'The physical LAN 192.168.1.0/24 must not be an AllowedIPs route on the CORE policedbc tunnel.'
+  if ((found != 0)); then
+    echo "The physical LAN $LAN_CIDR must not be an AllowedIPs route on the CORE $WG_IFACE tunnel." >&2
+    return 13
+  fi
+
+  echo "PASS: no active WireGuard config routes physical LAN $LAN_CIDR through $WG_IFACE."
+  echo 'Backup files are intentionally ignored by this check.'
 }
 
 case "$MODE" in
