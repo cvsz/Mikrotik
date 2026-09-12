@@ -1,0 +1,4 @@
+{"id":"pr-duplicate-001","input":{"state":"open","head_sha":"same-as-canonical","canonical_pr":7,"candidate_pr":12},"expected":{"action":"close_duplicate","reason":"superseded by canonical PR"}}
+{"id":"pr-stale-review-002","input":{"state":"open","review_threads":[{"resolved":false,"outdated":true}],"checks":"green"},"expected":{"action":"resolve_outdated_then_recheck","reason":"stale review thread blocks cleanup"}}
+{"id":"pr-reopen-003","input":{"state":"closed","merged":false,"head_ahead_of_base":true,"superseded":false},"expected":{"action":"reopen_for_review","reason":"unique unmerged work remains"}}
+{"id":"pr-salvage-004","input":{"state":"open","checks":"mixed","valuable_commits":["docs","tests"],"unsafe_commits":["live-prod-apply"]},"expected":{"action":"salvage_safe_commits","reason":"preserve safe evidence without unsafe mutation"}}
