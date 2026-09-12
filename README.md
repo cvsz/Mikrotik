@@ -1,6 +1,7 @@
 # zOS for MikroTik
 
 [![zOS RouterOS Skills Validation](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/routeros-skills.yml)
+[![zOS Evidence Validation](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml)
 [![Validate RouterOS Stack](https://github.com/cvsz/zos/actions/workflows/validate.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/validate.yml)
 [![Build zOS](https://github.com/cvsz/zos/actions/workflows/zos-build.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/zos-build.yml)
 [![GitHub last commit](https://img.shields.io/github/last-commit/cvsz/zos)](https://github.com/cvsz/zos/commits/main)
@@ -10,7 +11,7 @@
 [![Runner](https://img.shields.io/badge/runner-self--hosted%20Windows%20x64-0078D4)](docs/SELF_HOSTED_RUNNER.md)
 [![GHCR](https://img.shields.io/badge/package-GHCR-blue)](https://github.com/users/cvsz/packages?repo_name=zos)
 
-Production-safe RouterOS automation, zOS control-plane tooling, RouterOS AI/operator skills, update monitoring, backup, validation, and end-to-end operations for the ZeaZDev network.
+Production-safe RouterOS automation, zOS control-plane tooling, RouterOS AI/operator skills, deterministic evidence corpora, update monitoring, backup, validation, and end-to-end operations for the ZeaZDev network.
 
 > zOS runs as the management/control layer. RouterOS remains the trusted network operating system on the MikroTik device.
 
@@ -19,9 +20,10 @@ Production-safe RouterOS automation, zOS control-plane tooling, RouterOS AI/oper
 | Surface | Purpose |
 |---|---|
 | `routeros-skills.yml` | validates imported RouterOS skills on GitHub-hosted Windows; an optional manual probe can target zOS-Runner |
+| `evidence-validation.yml` | validates analyzer/RAG/triage/salvage/harness corpora and publishes generated security evidence |
 | `validate.yml` | static repository, shell, safety, and secret validation |
 | `zos-build.yml` | builds zOS artifacts and OCI/GHCR packages |
-| `zOS-Runner` | repository self-hosted Windows x64 runner for RouterOS skill validation |
+| `zOS-Runner` | repository self-hosted Windows x64 runner for explicit/manual validation probes |
 | GHCR | published zOS OCI package surface |
 
 ## Canonical environments
@@ -68,6 +70,27 @@ routeros-syntax-inspection
 
 See `skills/README.md` and `THIRD_PARTY_NOTICES.md` for provenance and attribution.
 
+## Evidence and regression corpus
+
+zOS keeps deterministic reference sets under `evidence/` for:
+
+- analyzer/golden regression cases;
+- RAG/evaluator ranking expectations;
+- stale/duplicate PR salvage behavior;
+- public discussion triage classifications;
+- Claude, Codex, Gemini, OpenCode, Zed, and dmux harness compatibility;
+- generated security evidence (SPDX file inventory, SARIF secret audit, audit report);
+- sanitized CI failure-mode signatures and troubleshooting expectations.
+
+Run:
+
+```bash
+make evidence
+make security-evidence
+```
+
+See `docs/EVIDENCE-MATRIX.md` and `docs/CI-TROUBLESHOOTING.md`. Security artifacts are generated evidence for repository checks, not a claim of external certification.
+
 ## Active production phases
 
 ```text
@@ -103,16 +126,18 @@ The controller creates a dedicated SSH key, does not store a router password, an
 ## Operator workflow
 
 ```bash
-make validate       # static topology/safety/shell checks
-make core-status    # inspect DEV/CORE network
-make core-check     # verify ens33 / physical-LAN routing
-make status         # router read-only status
-make audit          # complete read-only RouterOS audit
-make backup         # export + binary backup
-make dry-run        # upload and dry-run every active RouterOS phase
-make verify         # router reachability / route / WG / DNS checks
-make e2e            # DEV -> router -> PROD end-to-end smoke checks
-make update-check   # check RouterOS update status
+make validate           # static topology/safety/shell checks
+make evidence           # analyzer/RAG/triage/salvage/harness regression corpus
+make security-evidence  # generate SPDX/SARIF/audit evidence
+make core-status        # inspect DEV/CORE network
+make core-check         # verify ens33 / physical-LAN routing
+make status             # router read-only status
+make audit              # complete read-only RouterOS audit
+make backup             # export + binary backup
+make dry-run            # upload and dry-run every active RouterOS phase
+make verify             # router reachability / route / WG / DNS checks
+make e2e                # DEV -> router -> PROD end-to-end smoke checks
+make update-check       # check RouterOS update status
 ```
 
 Live apply is deliberately blocked by default. After successful backup + dry-run, enter RouterOS Safe Mode through a recovery-capable management session, then explicitly opt in:
@@ -178,7 +203,9 @@ Normal RouterOS skills validation runs on GitHub-hosted `windows-2025`; the self
 - destructive RouterOS pattern detection
 - shellcheck on Linux-hosted workflows
 - literal-secret/private-key checks
-- imported RouterOS skill structure checks
+- imported RouterOS skill structure and relative-link checks
+- analyzer/RAG/triage/salvage/harness fixture validation
+- generated SPDX/SARIF security evidence artifacts
 - GHCR/OCI build path
 - explicit live-change gates
 - backup + dry-run + Safe Mode requirements
@@ -191,10 +218,11 @@ Normal RouterOS skills validation runs on GitHub-hosted `windows-2025`; the self
 - `docs/DISASTER-RECOVERY.md` — rollback/recovery order
 - `docs/SELF_HOSTED_RUNNER.md` — `zOS-Runner` operations and hardening
 - `docs/zOS.md` — zOS architecture and operations
+- `docs/EVIDENCE-MATRIX.md` — regression/evidence coverage matrix
+- `docs/CI-TROUBLESHOOTING.md` — common CI failure-mode diagnosis
 - `CHECKLIST.md` — production acceptance checklist
 - `AGENTS.md` — canonical AI/agent production contract
-- `CLAUDE.md` — Claude-specific repository guidance
-- `GEMINI.md` — Gemini-specific repository guidance
+- `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, `OPENCODE.md`, `ZED.md`, `DMUX.md` — harness adapter contracts
 - `SECURITY.md` — security policy
 - `CONTRIBUTING.md` — contribution workflow
 - `THIRD_PARTY_NOTICES.md` — imported/upstream attribution

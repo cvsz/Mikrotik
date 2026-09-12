@@ -1,0 +1,65 @@
+name: zOS Evidence Validation
+
+on:
+  pull_request:
+    paths:
+      - 'evidence/**'
+      - 'tools/validate-evidence.py'
+      - 'tools/generate-security-evidence.py'
+      - 'CODEX.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - 'OPENCODE.md'
+      - 'ZED.md'
+      - 'DMUX.md'
+      - 'AGENTS.md'
+      - 'Makefile'
+      - '.github/workflows/evidence-validation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'evidence/**'
+      - 'tools/validate-evidence.py'
+      - 'tools/generate-security-evidence.py'
+      - 'CODEX.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - 'OPENCODE.md'
+      - 'ZED.md'
+      - 'DMUX.md'
+      - 'AGENTS.md'
+      - 'Makefile'
+      - '.github/workflows/evidence-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  corpus-and-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Validate corpus and harness compatibility
+        run: python3 tools/validate-evidence.py
+
+  security-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Generate SPDX, SARIF, and audit report
+        run: python3 tools/generate-security-evidence.py --out artifacts/security
+      - name: Upload security evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zOS-security-evidence-${{ github.sha }}
+          path: artifacts/security/
+          if-no-files-found: error
+          retention-days: 30

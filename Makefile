@@ -1,9 +1,15 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
+.PHONY: validate evidence security-evidence status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
 
 validate:
 	./tools/validate-repo.sh
+
+evidence:
+	python3 tools/validate-evidence.py
+
+security-evidence:
+	python3 tools/generate-security-evidence.py --out artifacts/security
 
 status:
 	./tools/omega-router.sh status
