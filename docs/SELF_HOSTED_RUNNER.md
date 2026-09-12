@@ -1,141 +1,111 @@
 # zOS-Runner Operations
 
-`zOS-Runner` is the repository self-hosted GitHub Actions runner used by zOS for Windows/x64 validation work.
+`zOS-Runner` is the repository self-hosted GitHub Actions runner used for explicit Windows/x64 validation probes.
 
-## Current runner identity
+## Current identity
 
 - Scope: repository runner
 - Display name: `zOS-Runner`
-- Labels exposed by GitHub: `self-hosted`, `Windows`, `X64`
-- Workflow target when explicitly probed: `[self-hosted, Windows, X64]`
+- Install/root path: `D:\zOS-Runner`
+- Labels: `self-hosted`, `Windows`, `X64`
+- Scheduled Task: `zOS-GitHub-Runner`
+- Repository: `cvsz/zos`
 
-GitHub Actions routes jobs by labels, not by the runner display name. Do not put `zOS-Runner` in `runs-on` unless that exact custom label has been added to the runner.
+GitHub Actions dispatches by labels, not display name. Use:
 
-## Current incident: worker crashes before step 1
+```yaml
+runs-on: [self-hosted, Windows, X64]
+```
 
-A repository run failed before any workflow step started with:
+Do not put `zOS-Runner` in `runs-on` unless that custom label is explicitly added.
+
+## Current launch model
+
+This installation is launched by Windows Scheduled Task `zOS-GitHub-Runner`, not a Windows service helper.
+
+Verify:
+
+```powershell
+Get-ScheduledTask -TaskName 'zOS-GitHub-Runner'
+(Get-ScheduledTask -TaskName 'zOS-GitHub-Runner').Actions
+Get-Process -ErrorAction SilentlyContinue |
+    Where-Object ProcessName -in @('Runner.Listener','Runner.Worker')
+```
+
+Expected task action:
 
 ```text
-System.ArgumentOutOfRangeException: Index and length must refer to a location within the string.
-at GitHub.DistributedTask.Logging.ValueEncoders.PowerShellPreAmpersandEscape(String value)
-at GitHub.DistributedTask.Logging.SecretMasker.AddValue(String value)
-at GitHub.Runner.Worker.Worker.InitializeSecretMasker(...)
+cmd.exe /c "D:\zOS-Runner\run.cmd"
 ```
 
-Because the failure occurs inside `Worker.InitializeSecretMasker` before checkout or user PowerShell executes, this is a self-hosted GitHub Actions runner process/runtime problem, not a RouterOS skill validation failure.
+Expected idle state is a running `Runner.Listener` and no `Runner.Worker`. A worker appears while a job executes.
 
-To keep pull requests unblocked, the normal `zOS RouterOS Skills Validation` job now runs on GitHub-hosted `windows-2025`. The self-hosted runner is isolated behind a manual `workflow_dispatch` input named `run_self_hosted` until the runner is repaired.
+## Avoid duplicate sessions
 
-## Repair procedure
+When the Scheduled Task listener is running, do not launch `D:\zOS-Runner\run.cmd` manually.
 
-Run these commands in an elevated PowerShell on the Windows machine that hosts the runner. Adjust the runner directory if it is not `C:\actions-runner`.
+A second listener using the same runner identity produces a session conflict indicating another listener already owns the GitHub session. That is not a reason to re-register the runner.
 
-```powershell
-$RunnerRoot = 'C:\actions-runner'
-Set-Location $RunnerRoot
+## Historical worker-runtime incident
 
-# Record installed runner version and service state.
-Get-Content .runner -ErrorAction SilentlyContinue
-Get-Service | Where-Object Name -Like 'actions.runner*'
-Get-Process Runner.Listener,Runner.Worker -ErrorAction SilentlyContinue
-```
+Earlier self-hosted jobs failed before step 1 with a runner worker initialization exception involving `PowerShellPreAmpersandEscape` and `Worker.InitializeSecretMasker`.
 
-If installed as a service, restart it first:
+Because the failure happened before user workflow steps, it was treated as a runner-runtime incident rather than a RouterOS skill failure.
+
+Normal RouterOS skills validation therefore runs on GitHub-hosted `windows-2025`. The self-hosted runner remains behind manual `workflow_dispatch` input `run_self_hosted=true` until successful end-to-end job execution proves the runtime healthy.
+
+## Health check
 
 ```powershell
-$svc = Get-Service | Where-Object Name -Like 'actions.runner*' | Select-Object -First 1
-if ($svc) {
-  Restart-Service $svc.Name -Force
-  Start-Sleep -Seconds 5
-  Get-Service $svc.Name
+$task = Get-ScheduledTask -TaskName 'zOS-GitHub-Runner'
+$listener = Get-Process Runner.Listener -ErrorAction SilentlyContinue
+
+[pscustomobject]@{
+  TaskState      = $task.State
+  RunnerListener = if ($listener) { 'RUNNING' } else { 'STOPPED' }
+  RunnerPID      = $listener.Id
+  RunnerPath     = 'D:\zOS-Runner'
 }
 ```
 
-If the same exception returns, stop the runner and update/reinstall the current GitHub Actions runner release. Preserve `.runner`, `.credentials`, and `.credentials_rsaparams` only as registration metadata; never commit or share them.
-
-Before replacing binaries:
+Inspect diagnostics:
 
 ```powershell
-$svc = Get-Service | Where-Object Name -Like 'actions.runner*' | Select-Object -First 1
-if ($svc) { Stop-Service $svc.Name -Force }
+Get-ChildItem D:\zOS-Runner\_diag |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 10 Name,LastWriteTime
+```
+
+## Manual probe
+
+Use **Actions → zOS RouterOS Skills Validation → Run workflow** and set `run_self_hosted=true`.
+
+The probe must remain validation-only and must not apply RouterOS configuration.
+
+If a job fails before step 1, inspect the newest `Worker_*.log` and `Runner_*.log` under `D:\zOS-Runner\_diag` before changing workflow code.
+
+## Restart procedure
+
+```powershell
+Stop-ScheduledTask -TaskName 'zOS-GitHub-Runner'
 Get-Process Runner.Listener,Runner.Worker -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-ScheduledTask -TaskName 'zOS-GitHub-Runner'
+Start-Sleep 3
+Get-ScheduledTask -TaskName 'zOS-GitHub-Runner'
 ```
 
-Then install the latest Windows x64 GitHub Actions runner package from the repository's **Settings → Actions → Runners → New self-hosted runner** instructions. Prefer the exact commands GitHub generates for the repository because registration tokens are short-lived.
-
-After reinstall/update, verify:
-
-```powershell
-Get-Service | Where-Object Name -Like 'actions.runner*'
-Get-Process Runner.Listener -ErrorAction SilentlyContinue
-```
-
-The runner should report `Idle` / `Listening for Jobs` in GitHub before testing it.
-
-## Minimal post-repair test
-
-Use **Actions → zOS RouterOS Skills Validation → Run workflow** and enable `run_self_hosted=true`.
-
-The self-hosted probe intentionally contains only:
-
-```powershell
-Write-Host "Runner: $env:RUNNER_NAME"
-Write-Host "OS: $env:RUNNER_OS"
-Write-Host "Arch: $env:RUNNER_ARCH"
-$PSVersionTable.PSVersion.ToString()
-```
-
-If this still fails before the first step, do not edit RouterOS code or skill files. Continue troubleshooting the runner installation/service/runtime.
+Do not re-register unless the runner identity or credentials are actually invalid.
 
 ## Security baseline
 
-The runner should be treated as a privileged automation host.
-
-- Use a dedicated Windows account with no interactive admin usage.
-- Keep Windows Update, Git, PowerShell, and the GitHub runner current.
-- Do not store RouterOS passwords, API tokens, private keys, or production secrets in the repository checkout.
-- Prefer repository/environment secrets and short-lived credentials where possible.
-- Do not run untrusted fork pull requests on the self-hosted runner.
-- Keep the runner workspace on a dedicated disk/path and periodically remove stale work directories.
-- Restrict inbound Windows Firewall access to only what is operationally required.
-- Keep outbound HTTPS access to GitHub/GHCR available.
-- Never use the runner workflow to apply live RouterOS configuration automatically.
-
-## Health checks
-
-From PowerShell on the runner host:
-
-```powershell
-Get-Service | Where-Object Name -Like 'actions.runner*'
-git --version
-pwsh --version
-Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsArchitecture
-```
-
-If the runner is installed interactively rather than as a Windows service, use the GitHub runner console output to verify it is `Listening for Jobs`.
-
-## Troubleshooting
-
-### Job remains queued
-
-Check that the runner is online and has all labels in `runs-on`.
-
-### Worker fails before checkout
-
-Treat `Worker.InitializeSecretMasker`, `PowerShellPreAmpersandEscape`, or similar stack traces as a runner-runtime incident. Restart/update/reinstall the runner before changing workflow scripts.
-
-### PowerShell execution failure after a step starts
-
-The workflow uses `pwsh`. Install/repair PowerShell 7 if `pwsh` is unavailable.
-
-### Checkout fails
-
-Verify the runner can reach `github.com`, `api.github.com`, and GitHub object storage over HTTPS.
-
-### Secret alert from imported skill
-
-Review the exact file before changing the scanner. Do not broadly suppress the rule unless the content is confirmed to be documentation/example text rather than a credential.
+- Treat the runner host as privileged automation infrastructure.
+- Do not run untrusted fork code.
+- Keep registration tokens and credential files private.
+- Do not commit `.runner`, `.credentials`, or `.credentials_rsaparams`.
+- Keep Windows, Git, PowerShell, and the runner package current.
+- Keep normal production RouterOS mutation outside CI.
+- Restrict inbound access and allow required outbound HTTPS to GitHub/GHCR.
 
 ## Production rule
 
-The self-hosted runner is a CI validation surface, not the production network control channel. Live MikroTik operations remain operator-gated from the zOS controller path with backup, dry-run, Safe Mode, explicit change gates, and post-change verification.
+The self-hosted runner is a CI/validation surface, not the production network control channel. Live MikroTik work remains operator-gated through zOS with backup, dry-run, recovery access/Safe Mode where appropriate, explicit opt-in, and verification.
