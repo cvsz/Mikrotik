@@ -18,7 +18,7 @@ Import the generated controller public key into the intended MikroTik management
 
 ## 2. Verify/repair CORE networking first
 
-If the CORE host needs SSH bootstrap/recovery, update the repository as its normal owner and then run the privileged installer:
+If CORE needs SSH bootstrap/recovery, update the repository as its normal owner and then run the privileged installer:
 
 ```bash
 cd /home/cvsz/zos
@@ -26,11 +26,35 @@ git pull --ff-only origin main
 sudo ./core/install.sh
 ```
 
-Do not run `git pull` from a root shell in a user-owned working tree. If already root, use `sudo -u cvsz git -C /home/cvsz/zos pull --ff-only origin main` rather than weakening Git's `safe.directory` ownership protection.
+Do not run `git pull` from a root shell in a user-owned working tree. If already root, execute Git as the repository owner instead of weakening Git's `safe.directory` protection.
 
-If the installer's APT refresh encounters a stale/missing HashiCorp signing key, it refreshes the official keyring from `apt.releases.hashicorp.com/gpg` and retries without disabling APT signature verification.
+### SSH production baseline
 
-The installer is deliberately conservative: it removes only the conflicting runtime `192.168.1.0/24` route from `policedbc`, refuses to continue if the gateway is not selected through `ens33`, installs/enables OpenSSH, validates `sshd`, and changes UFW only when UFW is already active. Persistent WireGuard/network-manager configuration remains operator-controlled.
+`core/install.sh` now defaults to:
+
+```text
+SSH_ALLOW_PASSWORD=no
+```
+
+It refuses to write a password-disabled SSH configuration unless the selected `SSH_USER` already has a non-empty `~/.ssh/authorized_keys` file. If emergency bootstrap access is genuinely required before a key can be installed, make that exception explicit for that run only:
+
+```bash
+sudo SSH_ALLOW_PASSWORD=yes ./core/install.sh
+```
+
+After key login is proven, rerun with the default fail-closed setting.
+
+### HashiCorp APT key recovery
+
+If APT encounters a stale/missing HashiCorp repository key, the installer fetches only the official `apt.releases.hashicorp.com/gpg` key and verifies the pinned package-signing fingerprint before installing it:
+
+```text
+D55C 0D1A C78A 8D81 26CB 631C FC9C A96A CA02 6560
+```
+
+A mismatch is fatal. The installer never uses `trusted=yes`, `--allow-unauthenticated`, or another APT signature bypass.
+
+The installer remains deliberately conservative: it removes only the conflicting runtime `192.168.1.0/24` route from `policedbc`, refuses to continue if the gateway is not selected through `ens33`, installs/enables OpenSSH, validates `sshd`, and changes UFW only when UFW is already active. Persistent WireGuard/network-manager configuration remains operator-controlled.
 
 Then verify:
 
@@ -73,12 +97,16 @@ make backup
 
 Keep text export evidence and the RouterOS backup in protected storage before high-risk changes.
 
-## 5. Validate repository
+## 5. Validate repository and evidence
 
 ```bash
 make validate
+make evidence
+make security-evidence
 ./zOS/bin/zos help
 ```
+
+Repository/CI success is necessary but not proof of live production readiness; retain generated evidence and separately verify runtime state.
 
 ## 6. Dry-run the active phase set
 
@@ -134,17 +162,22 @@ Normal RouterOS skills validation runs on GitHub-hosted Windows. Use the self-ho
 
 Do not start a second manual `run.cmd` while the Scheduled Task listener is active.
 
-## 11. Acceptance criteria
+## 11. Production acceptance criteria
 
-A change is complete only when:
+A deployment is production-ready only when all applicable items are evidenced:
 
-- precheck/audit passes;
-- backup/export exists;
-- dry-run passes;
-- management remains reachable;
+- repository validation and evidence workflows pass;
+- CORE has stable carrier, IPv4 and default route through `ens33`;
+- SSH key login is proven and password authentication is disabled unless an explicit temporary exception is documented;
+- HashiCorp APT package key matches the pinned reviewed fingerprint if repair was required;
+- router precheck/audit passes;
+- backup/export exists and is stored safely;
+- every intended RouterOS phase dry-runs cleanly;
+- management remains reachable during/after change;
 - WAN/default route remains correct;
 - LAN DHCP/DNS works;
-- CORE routes physical LAN through `ens33`;
 - WireGuard handshake is current;
+- firewall/NAT behavior is verified;
 - intended DEV/PROD reachability is verified;
+- `make verify` and `make e2e` pass;
 - post-change export/evidence is retained.
