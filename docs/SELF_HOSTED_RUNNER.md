@@ -7,9 +7,85 @@
 - Scope: repository runner
 - Display name: `zOS-Runner`
 - Labels exposed by GitHub: `self-hosted`, `Windows`, `X64`
-- Workflow target: `[self-hosted, Windows, X64]`
+- Workflow target when explicitly probed: `[self-hosted, Windows, X64]`
 
 GitHub Actions routes jobs by labels, not by the runner display name. Do not put `zOS-Runner` in `runs-on` unless that exact custom label has been added to the runner.
+
+## Current incident: worker crashes before step 1
+
+A repository run failed before any workflow step started with:
+
+```text
+System.ArgumentOutOfRangeException: Index and length must refer to a location within the string.
+at GitHub.DistributedTask.Logging.ValueEncoders.PowerShellPreAmpersandEscape(String value)
+at GitHub.DistributedTask.Logging.SecretMasker.AddValue(String value)
+at GitHub.Runner.Worker.Worker.InitializeSecretMasker(...)
+```
+
+Because the failure occurs inside `Worker.InitializeSecretMasker` before checkout or user PowerShell executes, this is a self-hosted GitHub Actions runner process/runtime problem, not a RouterOS skill validation failure.
+
+To keep pull requests unblocked, the normal `zOS RouterOS Skills Validation` job now runs on GitHub-hosted `windows-2025`. The self-hosted runner is isolated behind a manual `workflow_dispatch` input named `run_self_hosted` until the runner is repaired.
+
+## Repair procedure
+
+Run these commands in an elevated PowerShell on the Windows machine that hosts the runner. Adjust the runner directory if it is not `C:\actions-runner`.
+
+```powershell
+$RunnerRoot = 'C:\actions-runner'
+Set-Location $RunnerRoot
+
+# Record installed runner version and service state.
+Get-Content .runner -ErrorAction SilentlyContinue
+Get-Service | Where-Object Name -Like 'actions.runner*'
+Get-Process Runner.Listener,Runner.Worker -ErrorAction SilentlyContinue
+```
+
+If installed as a service, restart it first:
+
+```powershell
+$svc = Get-Service | Where-Object Name -Like 'actions.runner*' | Select-Object -First 1
+if ($svc) {
+  Restart-Service $svc.Name -Force
+  Start-Sleep -Seconds 5
+  Get-Service $svc.Name
+}
+```
+
+If the same exception returns, stop the runner and update/reinstall the current GitHub Actions runner release. Preserve `.runner`, `.credentials`, and `.credentials_rsaparams` only as registration metadata; never commit or share them.
+
+Before replacing binaries:
+
+```powershell
+$svc = Get-Service | Where-Object Name -Like 'actions.runner*' | Select-Object -First 1
+if ($svc) { Stop-Service $svc.Name -Force }
+Get-Process Runner.Listener,Runner.Worker -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+Then install the latest Windows x64 GitHub Actions runner package from the repository's **Settings → Actions → Runners → New self-hosted runner** instructions. Prefer the exact commands GitHub generates for the repository because registration tokens are short-lived.
+
+After reinstall/update, verify:
+
+```powershell
+Get-Service | Where-Object Name -Like 'actions.runner*'
+Get-Process Runner.Listener -ErrorAction SilentlyContinue
+```
+
+The runner should report `Idle` / `Listening for Jobs` in GitHub before testing it.
+
+## Minimal post-repair test
+
+Use **Actions → zOS RouterOS Skills Validation → Run workflow** and enable `run_self_hosted=true`.
+
+The self-hosted probe intentionally contains only:
+
+```powershell
+Write-Host "Runner: $env:RUNNER_NAME"
+Write-Host "OS: $env:RUNNER_OS"
+Write-Host "Arch: $env:RUNNER_ARCH"
+$PSVersionTable.PSVersion.ToString()
+```
+
+If this still fails before the first step, do not edit RouterOS code or skill files. Continue troubleshooting the runner installation/service/runtime.
 
 ## Security baseline
 
@@ -25,18 +101,6 @@ The runner should be treated as a privileged automation host.
 - Keep outbound HTTPS access to GitHub/GHCR available.
 - Never use the runner workflow to apply live RouterOS configuration automatically.
 
-## Validation workflow
-
-`.github/workflows/routeros-skills.yml` is intentionally read-only. It performs:
-
-1. Checkout with persisted Git credentials disabled.
-2. Runner diagnostics.
-3. Imported RouterOS skill structure validation.
-4. Basic accidental-secret checks over `skills/`.
-5. Job summary output.
-
-Linux-specific repository validation remains in the Ubuntu-hosted workflows because the zOS shell tooling depends on Bash/ShellCheck and should not require extra Windows runner dependencies.
-
 ## Health checks
 
 From PowerShell on the runner host:
@@ -44,22 +108,11 @@ From PowerShell on the runner host:
 ```powershell
 Get-Service | Where-Object Name -Like 'actions.runner*'
 git --version
-$PSVersionTable.PSVersion
+pwsh --version
 Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsArchitecture
 ```
 
 If the runner is installed interactively rather than as a Windows service, use the GitHub runner console output to verify it is `Listening for Jobs`.
-
-## Updating the runner
-
-GitHub runners normally self-update. If the runner becomes offline or incompatible:
-
-1. Stop the runner service/process.
-2. Back up only local runner configuration metadata if required.
-3. Install the current GitHub Actions runner package.
-4. Re-register only if GitHub reports the registration is invalid.
-5. Verify the labels are still `self-hosted`, `Windows`, `X64`.
-6. Dispatch `zOS RouterOS Skills Validation` manually.
 
 ## Troubleshooting
 
@@ -67,7 +120,11 @@ GitHub runners normally self-update. If the runner becomes offline or incompatib
 
 Check that the runner is online and has all labels in `runs-on`.
 
-### PowerShell execution failure
+### Worker fails before checkout
+
+Treat `Worker.InitializeSecretMasker`, `PowerShellPreAmpersandEscape`, or similar stack traces as a runner-runtime incident. Restart/update/reinstall the runner before changing workflow scripts.
+
+### PowerShell execution failure after a step starts
 
 The workflow uses `pwsh`. Install/repair PowerShell 7 if `pwsh` is unavailable.
 
