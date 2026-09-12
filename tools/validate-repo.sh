@@ -17,6 +17,7 @@ required=(
   90-EXPORT-EVIDENCE.rsc
   99-VERIFY-HEALTH.rsc
   AGENTS.md README.md ENVIRONMENTS.md SECURITY.md
+  CLAUDE.md GEMINI.md CONTRIBUTING.md
   config/topology.env.example
   tools/omega-router.sh
   tools/deploy-phases.sh
@@ -25,7 +26,7 @@ required=(
   tools/e2e-check.sh
   tools/install-controller.sh
   tools/install-update-monitor.sh
-  core/install.sh
+  core/install.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh
   .github/workflows/validate.yml
   .github/workflows/zos-build.yml
@@ -52,6 +53,11 @@ grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe
 if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then
   err 'core/install.sh contains an APT signature-bypass pattern'
 fi
+
+grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
+grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'current HashiCorp APT signing-key fingerprint is not pinned'
+grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
+grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
 
 if command -v shellcheck >/dev/null 2>&1; then
   mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
