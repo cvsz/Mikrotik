@@ -19,7 +19,7 @@
     :if ([/ip dhcp-server get $dhcpId comment] != "OMEGA-MANAGED") do={
         :error "dhcp-client exists but is not zOS-owned; refusing takeover"
     }
-    :if ([/ip dhcp-server get $dhcpId interface] != "bridge-lan"] || [/ip dhcp-server get $dhcpId address-pool] != "client-dhcp-pool") do={
+    :if ([/ip dhcp-server get $dhcpId interface] != "bridge-lan" || [/ip dhcp-server get $dhcpId address-pool] != "client-dhcp-pool") do={
         :error "zOS-owned dhcp-client differs from contract; refusing implicit rewrite"
     }
 }
@@ -39,8 +39,8 @@
     /ip dns static add name=router.zeaz.internal address=192.168.1.1 type=A comment="OMEGA-MANAGED"
 } else={
     :local routerDnsId [/ip dns static find where name="router.zeaz.internal"]
-    :if ([/ip dns static get $routerDnsId address] != "192.168.1.1" && [/ip dns static get $routerDnsId comment] != "OMEGA-MANAGED") do={
-        :error "router.zeaz.internal exists with unverified ownership/address"
+    :if ([/ip dns static get $routerDnsId address] != "192.168.1.1") do={
+        :error "router.zeaz.internal exists with a different address; refusing takeover"
     }
 }
 
