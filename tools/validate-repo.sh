@@ -72,7 +72,7 @@ if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire:
   err 'core/install.sh contains an APT signature-bypass pattern'
 fi
 
-grep -Fq 'SSH_ALLOW_PASSWORD="${SSH_ALLOW_PASSWORD:-no}"' core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
+grep -Fq "SSH_ALLOW_PASSWORD=\"\${SSH_ALLOW_PASSWORD:-no}\"" core/install.sh || err 'CORE SSH password authentication is not fail-closed by default'
 grep -Fq 'D55C0D1AC78A8D8126CB631CFC9CA96ACA026560' core/install.sh || err 'HashiCorp APT signing-key fingerprint is not pinned'
 grep -Fq 'Password authentication is disabled by default' core/install.sh || err 'CORE installer lacks authorized_keys lockout prevention'
 grep -Fq 'trap - RETURN' core/install.sh || err 'HashiCorp temp cleanup trap is not self-clearing'
