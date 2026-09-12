@@ -42,6 +42,17 @@ make validate
 make docs
 ~~~
 
+### Environment examples
+
+zOS now provides scoped environment templates:
+
+- `.env.example` — operator/developer overrides and fail-closed gates;
+- `config/topology.env.example` — authoritative RouterOS/DEV/PROD topology template;
+- `core/.env.example` — CORE network and SSH bootstrap variables;
+- `zOS/.env.example` — zOS runtime/update-policy variables.
+
+Real `.env` files remain ignored. Keep secrets and site-specific values out of Git. The templates are references; zOS does not silently auto-load the root, CORE, or zOS `.env` files.
+
 Operational shell entry points are tracked executable in Git. If a checked-out file unexpectedly returns exit 126/permission denied, diagnose the checkout/filesystem mode instead of adding ad-hoc `chmod` instructions to normal installation.
 
 ## Operator workflow

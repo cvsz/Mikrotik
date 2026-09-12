@@ -45,6 +45,17 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `docs/CI-TROUBLESHOOTING.md` | common failure signatures |
 | `docs/EVIDENCE-MATRIX.md` | committed/generated evidence model |
 
+## Environment templates
+
+| Template | Purpose |
+|---|---|
+| `.env.example` | operator/developer override reference |
+| `config/topology.env.example` | canonical topology/runtime template |
+| `core/.env.example` | CORE bootstrap/recovery options |
+| `zOS/.env.example` | zOS runtime/update-policy options |
+
+Templates must remain secret-free and fail-closed. Real `.env` files are local-only.
+
 ## Agent adapter files
 
 `CODEX.md`, `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ZED.md`, and `DMUX.md` point back to `AGENTS.md` and add only surface-specific notes.

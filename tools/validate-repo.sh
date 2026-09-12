@@ -23,7 +23,7 @@ required=(
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
   docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
-  config/topology.env.example
+  .env.example core/.env.example zOS/.env.example config/topology.env.example
   tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
   tools/install-controller.sh tools/install-update-monitor.sh
@@ -64,6 +64,11 @@ grep -q 'wg-remote' 00-PRECHECK.rsc || err 'precheck missing current WireGuard i
 grep -q 'core.zeaz.dev' ENVIRONMENTS.md || err 'canonical DEV FQDN missing'
 grep -q 'prod.zeaz.dev' ENVIRONMENTS.md || err 'canonical PROD FQDN missing'
 grep -q '^DEV_LAN_IP=$' config/topology.env.example || err 'DEV LAN example must remain unset because CORE LAN is DHCP/runtime evidence'
+grep -q '^OMEGA_ALLOW_LIVE_APPLY=0$' .env.example || err 'root .env.example must fail closed for live apply'
+grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' .env.example || err 'root .env.example must fail closed for auto update'
+grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' .env.example || err 'root .env.example must fail closed for router reboot'
+grep -q '^SSH_ALLOW_PASSWORD=no$' core/.env.example || err 'core/.env.example must disable SSH password authentication by default'
+grep -q '^OMEGA_ALLOW_LIVE_APPLY=0$' zOS/.env.example || err 'zOS/.env.example must fail closed for live apply'
 grep -q '^ROUTEROS_UPDATE_CHANNEL=stable$' config/topology.env.example || err 'stable RouterOS update channel missing'
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'safe auto-update default missing'
 grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
