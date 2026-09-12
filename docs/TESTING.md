@@ -42,6 +42,12 @@ make e2e
 
 Use `make backup` and `make dry-run` before any approved live change.
 
+## Isolated RouterOS lab
+
+The minimal runtime safety test is documented in [`docs/ROUTEROS-LAB-TEST-PLAN.md`](ROUTEROS-LAB-TEST-PLAN.md). It must run only against a disposable RouterOS device/CHR/VM with no production connectivity.
+
+The plan covers five release-critical controls: Safe Mode commit/rollback, mandatory dry-run gating, RouterOS update verification, encrypted backup cleanup, and ownership-filtered DHCP/DNS/firewall/NAT changes. A lab pass does not authorize production deployment.
+
 ## CI matrix
 
 | Workflow | Primary purpose | Live mutation? |
