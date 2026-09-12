@@ -10,6 +10,7 @@ Notable repository and operational changes are recorded here. zOS has not yet de
 - Added documentation validation to prevent stale repository names and broken local Markdown references.
 - Clarified the difference between desired automation identity and the actual operator/recovery account on an existing CORE host.
 - Removed transient DEV DHCP addressing from the canonical example contract.
+- Added root, CORE, and zOS `.env.example` templates with fail-closed defaults and documented loading/secret-handling rules.
 
 ### CORE recovery/hardening
 - Added fail-closed OpenSSH bootstrap/recovery for CORE.
