@@ -1,45 +1,47 @@
 ---
 name: routeros-fundamentals
-description: "RouterOS v7 domain knowledge for AI agents. Use when: working with MikroTik RouterOS, writing RouterOS CLI/script commands, calling RouterOS REST API, debugging why a Linux command fails on RouterOS, or when the user mentions MikroTik, RouterOS, CHR, or /ip /system /interface paths. Scope: RouterOS 7.x (long-term and newer) only — v6 is NOT covered and accuracy for v6 problems will be low."
+description: "RouterOS v7 domain knowledge for AI agents. Use when: working with MikroTik RouterOS, writing RouterOS CLI/script commands, calling RouterOS REST API, debugging why a Linux command fails on RouterOS, or when the user mentions MikroTik, RouterOS, CHR, or /ip /system /interface paths. Scope: RouterOS 7.x only."
 ---
 
 # RouterOS Fundamentals
 
-## RouterOS Is NOT GNU/Linux
+## RouterOS Is Not GNU/Linux
 
-RouterOS runs a Linux kernel (5.6.3) but **everything above the kernel is MikroTik's proprietary `nova` system**. This is the single most important fact for agents to internalize.
+RouterOS uses its own CLI, configuration database, scripting language, REST API, package system, and service model. Do not assume normal Linux userland behavior.
 
-**What does NOT exist on RouterOS:**
+What is not available in the normal RouterOS CLI environment:
 
-- No `/bin`, `/usr`, `/etc`, `/var` — no FHS layout
-- No bash, sh, ash, zsh — no Unix shell at all
-- No coreutils (`ls`, `cat`, `grep`, `ps`, `mount`, `ip`, `iptables`, etc.)
-- No glibc, musl, busybox
-- No apt, pkg, opkg — no package manager (packages are `.npk` files installed via upload + reboot)
-- No `systemctl`, `service`, init system
-- No `/proc` or `/sys` accessible from userland
-- No `docker`, `podman` — RouterOS has its own `/container` subsystem (7.x+)
+- no `/bin`, `/usr`, `/etc`, or `/var` FHS workflow;
+- no bash/sh/coreutils workflow;
+- no apt/opkg package manager;
+- no systemd/service manager;
+- no ordinary Linux `/proc` or `/sys` administration workflow;
+- no Docker/Podman command surface; RouterOS uses its own `/container` subsystem.
 
-**What DOES exist:**
+What is available:
 
-- RouterOS CLI — its own language, not shell. Accessed via SSH, serial, WinBox, or WebFig
-- REST API at `/rest/` (HTTP, port 80 by default) — the primary programmatic interface
-- RouterOS scripting language (`.rsc` files) — its own syntax, not bash. See the `routeros-scripting` skill and [Scripting reference](./references/scripting.md)
-- WebFig (web UI) on port 80
-- WinBox protocol on port 8291
+- RouterOS CLI over SSH, serial, WinBox, or WebFig;
+- REST API under `/rest/`;
+- RouterOS `.rsc` scripting;
+- WebFig and WinBox management;
+- RouterOS packages and built-in subsystems.
 
-**Common agent mistakes to avoid:**
+See the [Scripting reference](./references/scripting.md) and the `routeros-scripting` skill for language details.
 
-- Do NOT try `ssh admin@host 'ls /'` — it opens RouterOS CLI, not a shell
-- Do NOT suggest `mount`, `fdisk`, `mkfs` — use `/disk` commands instead
-- Do NOT look for config files at `/etc/` — configuration is in the RouterOS database
-- Do NOT assume `ping` works the same — it's `/tool/ping` or `/ping` in CLI
-- Do NOT suggest installing packages via `apt` or `opkg` — upload `.npk` via SCP then `/system/package/apply-changes` (7.18+) or `/system/reboot` (<7.18)
-- See [Extra packages reference](./references/extra-packages.md) for the full package list and installation pattern
+## Common Agent Mistakes
+
+- Do not run Linux shell commands such as `ls`, `mount`, `fdisk`, `iptables`, or `systemctl` on RouterOS.
+- Do not look for configuration files under `/etc`.
+- Do not assume shell pipes, redirection, or subshell syntax.
+- Do not suggest `apt` or `opkg`; RouterOS packages are `.npk` files.
+- Do not use production addresses in generic examples.
+- Do not treat interactive print-row numbers as stable script identifiers.
+
+See [Extra packages reference](./references/extra-packages.md) for package patterns.
 
 ## RouterOS CLI Syntax
 
-RouterOS CLI uses path-based navigation, not Unix command pipelines:
+RouterOS uses path-based commands:
 
 ```routeros
 # Navigation
@@ -47,136 +49,115 @@ RouterOS CLI uses path-based navigation, not Unix command pipelines:
 /interface/print
 /system/resource/print
 
-# Adding entries
-/ip/address/add address=192.168.1.1/24 interface=ether1
+# Safe fictional example network; do not copy production addresses into tutorials
+/ip/address/add address=198.51.100.1/24 interface=bridge-lab
 
-# Modifying (by internal ID or find expression)
-/ip/address/set [find interface=ether1] address=10.0.0.1/24
+# Modify using a stable find expression
+/ip/address/set [find interface=bridge-lab] address=198.51.100.2/24
 
-# Removing
-/ip/address/remove [find address="192.168.1.1/24"]
-
-# Running a command
-/system/reboot
-/tool/fetch url="http://example.com/file.npk" dst-path="/"
+# Remove by an explicit fictional address
+/ip/address/remove [find address="198.51.100.2/24"]
 ```
 
-**Key syntax differences from shell:**
+The `198.51.100.0/24` block above is documentation-only. On the ZeaZDev PoliceDBC router, the production LAN gateway belongs on `bridge-lan`; never use a generic example to move it onto `ether1`.
 
-- `=` assigns properties (no spaces around it)
-- `[find ...]` is the query expression (like WHERE)
-- Interactive `print` row numbers are not script-safe object IDs; use `[find ...]` or `*HEX` internal IDs
-- Strings use `""` (double quotes only)
-- Comments use `#`
-- Variables: `:local myVar "value"` and `$myVar`
-- No pipes, no redirection, no subshell
+Key syntax rules:
+
+- `=` assigns properties;
+- `[find ...]` queries objects;
+- interactive row numbers are not script-safe IDs;
+- internal IDs look like `*HEX` but should be looked up instead of hard-coded where practical;
+- strings use double quotes;
+- comments use `#`;
+- variables use RouterOS syntax such as `:local name "value"`;
+- there are no shell pipes/redirections/subshells.
 
 ## REST API
 
-RouterOS REST API at `http://HOST:PORT/rest/`. HTTP verbs map non-standardly:
+RouterOS REST commonly maps verbs as follows:
 
-| HTTP | RouterOS Action | CLI Equiv |
+| HTTP | RouterOS action | CLI equivalent |
 |---|---|---|
-| `GET` | print (list/read) | `/path/print` |
-| `PUT` | **add (create)** | `/path/add` |
-| `PATCH` | set (update) | `/path/set` |
+| `GET` | print/read | `/path/print` |
+| `PUT` | add/create | `/path/add` |
+| `PATCH` | set/update | `/path/set` |
 | `DELETE` | remove | `/path/remove` |
-| `POST` | command (execute) | `/path/command` |
+| `POST` | command/action | `/path/command` |
 
-**Key gotchas:**
+Important points:
 
-- `PUT` creates (NOT updates) — opposite of many REST APIs
-- Empty password auth: `admin:` (colon required, nothing after)
-- WebFig root (`GET /`) returns HTTP 200 without auth — use as health check
-- REST API (`/rest/`) requires auth (HTTP 401 without it)
-- `.id` field is `*HEX` format (e.g., `*1`, `*A`)
+- `PUT` creates; it is not the normal REST-update semantic.
+- REST endpoints require authentication.
+- `.id` values are RouterOS internal identifiers and should be looked up when used.
+- A synchronous `/rest/execute` request can return HTTP 200 even when RouterOS rejects the command. HTTP status alone is therefore not proof of effect; inspect the returned payload and verify resulting state independently.
 
-See [REST API reference](./references/rest-api-patterns.md) for full patterns, error handling, filtering, POST commands, and `/console/inspect`.
+See [REST API reference](./references/rest-api-patterns.md).
 
 ## Version Scheme
 
-Format: `MAJOR.MINOR[.PATCH][betaN|rcN]` — e.g., `7.22`, `7.22.1`, `7.23beta2`, `7.22rc1`
+RouterOS 7 versions use forms such as `7.22`, `7.22.1`, `7.23beta2`, and `7.22rc1`.
 
-**Channels:** `stable` / `long-term` / `testing` / `development`
+Common channels include `stable`, `long-term`, `testing`, and `development`.
 
-Version endpoint (plain text): `https://upgrade.mikrotik.com/routeros/NEWESTa7.<channel>`
-
-For version parsing, comparison, download URLs, and package naming: see [Version parsing reference](./references/version-parsing.md).
+See [Version parsing reference](./references/version-parsing.md).
 
 ## Architecture Names
 
-MikroTik uses these architecture identifiers (not standard Linux arch names):
-
-| MikroTik name | CPU | Common hardware |
+| MikroTik name | General architecture | Example use |
 |---|---|---|
-| `x86` | x86_64 | CHR, x86-based RouterBOARDs |
-| `arm64` | aarch64 | Modern ARM boards (RB5009, Chateau) |
-| `arm` | ARMv7 | Older ARM boards |
-| `mipsbe` | MIPS big-endian | Legacy RouterBOARDs |
-| `mmips` | MIPS multi-core | hAP ac, RB4011 |
-| `smips` | MIPS single-core | hAP lite, mAP |
-| `ppc` | PowerPC | CCR1xxx series |
-| `tile` | Tilera | CCR (older models) |
+| `x86` | x86_64 | CHR/x86 systems |
+| `arm64` | aarch64 | modern ARM64 boards |
+| `arm` | ARMv7 | older ARM boards |
+| `mipsbe` | MIPS big-endian | legacy RouterBOARDs |
+| `mmips` | MIPS multi-core | devices such as RB4011 |
+| `smips` | MIPS single-core | smaller legacy boards |
+| `ppc` | PowerPC | older CCR families |
+| `tile` | Tilera | older CCR families |
 
-CHR (Cloud Hosted Router) is available only for `x86` and `arm64`.
+Always verify the architecture from the real device before selecting packages.
 
-## Default Credentials
+## Default/Initial Credentials
 
-- Username: `admin`
-- Password: (empty — no password)
-- On first login via SSH/console, RouterOS 7.x prompts to set a password or press `a` to skip
-- REST API and WebFig allow empty-password access
+Fresh-device credential behavior varies with device generation, factory state, and RouterOS packaging. Do not assume an empty password on production equipment. Inspect the actual device onboarding state and immediately use a strong unique credential policy.
 
-## Inspecting Hardware from RouterOS CLI
+## Hardware and Service Inspection
 
 ```routeros
-# PCI devices (the RouterOS equivalent of lspci)
 /system/resource/hardware/print
-
-# IRQ assignments (shows driver binding)
 /system/resource/irq/print
-
-# System overview
 /system/resource/print
-
-# Disk info
 /disk/print
-
-# Installed packages
 /system/package/print
-
-# IP services and ports
 /ip/service/print
-
-# Network interfaces
 /interface/print
 ```
 
-## Additional Resources
+## References
 
-**Reference files:**
+Local reference targets are kept valid in this vendored skill pack. Some files are provenance pointers to the canonical upstream `tikoci/routeros-skills` reference until full reference content is synchronized.
 
-- New official manual home: <https://manual.mikrotik.com/>. The new site is replacing older Confluence-based `help.mikrotik.com` docs and includes a CLI Reference section at <https://manual.mikrotik.com/docs/CLI%20Reference/>.
-- For REST API details and `/console/inspect` command tree: see [REST API reference](./references/rest-api-patterns.md)
-- For version parsing, comparison, and download URL logic: see [Version parsing reference](./references/version-parsing.md)
-- For extra packages (container, iot, zerotier, etc.): see [Extra packages reference](./references/extra-packages.md)
-- For device-mode (modes, feature matrix, physical confirmation): see [Device-mode reference](./references/device-mode.md)
-- For RouterOS scripting language syntax: see [Scripting reference](./references/scripting.md)
-- For user management, SSH keys, admin account: see [Users REST reference](./references/routeros-users-rest.md)
-- For IP addressing, routing, DHCP, DNS, interfaces: see [Networking REST reference](./references/routeros-networking-rest.md)
-- For firewall filter/NAT/mangle and rule ordering: see [Firewall REST reference](./references/routeros-firewall-rest.md)
-- For Bun runtime bugs affecting HTTP (req.destroy, pool, secrets): see [Bun runtime gotchas](./references/bun-runtime-gotchas.md)
+- [REST API reference](./references/rest-api-patterns.md)
+- [Version parsing reference](./references/version-parsing.md)
+- [Extra packages reference](./references/extra-packages.md)
+- [Device-mode reference](./references/device-mode.md)
+- [Device-mode REST reference](./references/device-mode-rest.md)
+- [RouterOS scripting reference](./references/scripting.md)
+- [Users REST reference](./references/routeros-users-rest.md)
+- [Networking REST reference](./references/routeros-networking-rest.md)
+- [Firewall REST reference](./references/routeros-firewall-rest.md)
+- [Packages REST reference](./references/packages-rest.md)
+- [Licensing REST reference](./references/licensing-rest.md)
+- [Async commands REST reference](./references/async-commands-rest.md)
+- [Bun runtime gotchas](./references/bun-runtime-gotchas.md)
 
-**Related skills:**
+Official documentation: <https://manual.mikrotik.com/>
 
-- For RouterOS scripting and `.rsc`/CLI config automation gotchas: see the `routeros-scripting` skill
-- For the /container subsystem (VETH, device-mode, lifecycle): see the `routeros-container` skill
-- For netinstall-cli and device flashing: see the `routeros-netinstall` skill
-- For the /app YAML container format (7.22+): see the `routeros-app-yaml` skill
-- For /console/inspect tree traversal and schema generation: see the `routeros-command-tree` skill
-- For running CHR in QEMU (local or CI): see the `routeros-qemu-chr` skill
-- For packet capture, /tool/sniffer, and TZSP streaming: see the `routeros-sniffer` skill
+## Related Skills
 
-**MCP tools:**
-
-- For command tree browsing and property lookups: use the `rosetta` MCP server tools (`routeros_search`, `routeros_get_page`, `routeros_command_tree`)
+- `routeros-scripting`
+- `routeros-container`
+- `routeros-netinstall`
+- `routeros-app-yaml`
+- `routeros-command-tree`
+- `routeros-qemu-chr`
+- `routeros-sniffer`
