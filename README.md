@@ -161,7 +161,7 @@ OMEGA_ALLOW_ROUTER_REBOOT=0
 
 To perform an unattended RouterOS install, both explicit gates must be enabled. The update path performs backup, pre-update verification, install/reboot, post-reboot verification, and optional server reporting.
 
-## CORE no-Internet recovery
+## CORE no-Internet / SSH recovery
 
 The known failure mode is the physical `192.168.1.0/24` LAN being claimed by the `policedbc` WireGuard route while `ens33` has lost/changed carrier. Diagnose first:
 
@@ -169,6 +169,14 @@ The known failure mode is the physical `192.168.1.0/24` LAN being claimed by the
 make core-status
 make core-check
 ```
+
+For a fresh/recovery Ubuntu CORE host where SSH must also be installed or restored, use the fail-closed bootstrap:
+
+```bash
+sudo ./core/install.sh
+```
+
+It removes only the conflicting runtime LAN route from `policedbc`, verifies the gateway still resolves through `ens33`, installs/enables OpenSSH, validates `sshd`, and opens the selected SSH port only when UFW is already active. It does not rewrite persistent WireGuard or host network-manager configuration. See `core/README.md`.
 
 If `ens33` has carrier and the LAN route is incorrectly on `policedbc`:
 
