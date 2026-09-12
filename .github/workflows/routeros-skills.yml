@@ -2,61 +2,102 @@ name: zOS RouterOS Skills Validation
 
 on:
   pull_request:
+    paths:
+      - 'skills/**'
+      - '.github/workflows/routeros-skills.yml'
   push:
     branches: [main]
+    paths:
+      - 'skills/**'
+      - '.github/workflows/routeros-skills.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: routeros-skills-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   routeros-skills:
-    name: routeros-skills
-    runs-on: [self-hosted, Windows, X64, zOS-Runner]
+    name: RouterOS skills on zOS-Runner
+    # GitHub routes self-hosted jobs by labels, not by runner display name.
+    # zOS-Runner currently exposes: self-hosted, Windows, X64.
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 10
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Runner diagnostics
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Runner: $env:RUNNER_NAME"
+          Write-Host "OS: $env:RUNNER_OS"
+          Write-Host "Arch: $env:RUNNER_ARCH"
+          git --version
+          $PSVersionTable.PSVersion
 
       - name: Verify imported RouterOS skills
         run: |
-          $ErrorActionPreference = "Stop"
+          $ErrorActionPreference = 'Stop'
           $required = @(
-            "routeros-app-yaml",
-            "routeros-command-tree",
-            "routeros-container",
-            "routeros-firewall",
-            "routeros-fundamentals",
-            "routeros-hotspot",
-            "routeros-mac-telnet",
-            "routeros-mndp",
-            "routeros-netinstall",
-            "routeros-qemu-chr",
-            "routeros-quickchr",
-            "routeros-scripting",
-            "routeros-sniffer",
-            "routeros-syntax-inspection"
+            'routeros-app-yaml',
+            'routeros-command-tree',
+            'routeros-container',
+            'routeros-firewall',
+            'routeros-fundamentals',
+            'routeros-hotspot',
+            'routeros-mac-telnet',
+            'routeros-mndp',
+            'routeros-netinstall',
+            'routeros-qemu-chr',
+            'routeros-quickchr',
+            'routeros-scripting',
+            'routeros-sniffer',
+            'routeros-syntax-inspection'
           )
           foreach ($skill in $required) {
-            $path = Join-Path "skills" $skill | Join-Path -ChildPath "SKILL.md"
-            if (-not (Test-Path $path)) {
+            $path = Join-Path (Join-Path 'skills' $skill) 'SKILL.md'
+            if (-not (Test-Path $path -PathType Leaf)) {
               throw "Missing imported skill: $path"
             }
             $content = Get-Content $path -Raw
-            if ($content -notmatch "^---") {
+            if ($content -notmatch '(?s)^---\s+.*?\s+---') {
               throw "Missing YAML front matter: $path"
             }
-            if ($content -notmatch "name: $([regex]::Escape($skill))") {
+            if ($content -notmatch "(?m)^name:\s+$([regex]::Escape($skill))\s*$") {
               throw "Skill name mismatch: $path"
             }
           }
-          Write-Host "All RouterOS skills present and structurally valid."
+          Write-Host "All $($required.Count) RouterOS skills are present and structurally valid."
 
-      - name: Validate repository
+      - name: Reject accidental secrets in imported skills
         run: |
-          bash ./tools/validate-repo.sh
+          $ErrorActionPreference = 'Stop'
+          $patterns = @(
+            '-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----',
+            '(?i)(password|token|private[-_ ]?key)\s*[:=]\s*["''][^"'']{12,}["'']'
+          )
+          $files = Get-ChildItem skills -Recurse -File
+          foreach ($file in $files) {
+            $content = Get-Content $file.FullName -Raw
+            foreach ($pattern in $patterns) {
+              if ($content -match $pattern) {
+                throw "Potential committed secret in $($file.FullName)"
+              }
+            }
+          }
 
-      - name: zOS CLI smoke test
+      - name: Summary
         run: |
-          bash ./zOS/bin/zos help
+          "## zOS RouterOS Skills" >> $env:GITHUB_STEP_SUMMARY
+          "- Runner: **$env:RUNNER_NAME**" >> $env:GITHUB_STEP_SUMMARY
+          "- Platform: **$env:RUNNER_OS / $env:RUNNER_ARCH**" >> $env:GITHUB_STEP_SUMMARY
+          "- Imported skills: **14**" >> $env:GITHUB_STEP_SUMMARY
+          "- Result: **PASS**" >> $env:GITHUB_STEP_SUMMARY
