@@ -16,9 +16,20 @@ Password authentication is disabled by default. The installer refuses to switch 
 
 ## Provision a public key
 
-Generate/locate the key on the client workstation. Copy only the `.pub` content to the server. Never copy or paste the private key into chat, Git, shell history, or `authorized_keys`.
+Generate/locate the key on the client workstation. Never copy or paste the private key into chat, Git, shell history, or `authorized_keys`.
 
-On CORE:
+The tracked recovery helper validates the private key locally, derives its public key, prints the SHA-256 fingerprint, and then uses `ssh-copy-id` with an explicitly supplied target:
+
+~~~bash
+./core/install-ssh-key.sh \
+  --host <core-ip-or-hostname> \
+  --user <core-user> \
+  --private-key <private-key-path>
+~~~
+
+An explicit port can be supplied with `--port`. The helper has no hard-coded CORE address and does not transmit the private key.
+
+Manual recovery remains possible on CORE:
 
 ~~~bash
 install -d -m 700 ~/.ssh
