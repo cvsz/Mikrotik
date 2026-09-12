@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "canonical_contract": "AGENTS.md",
+  "surfaces": [
+    {"name":"Claude","contract":"CLAUDE.md","required":true,"must_reference":"AGENTS.md"},
+    {"name":"Codex","contract":"AGENTS.md","required":true,"must_reference":"canonical operating contract"},
+    {"name":"Gemini","contract":"GEMINI.md","required":true,"must_reference":"AGENTS.md"},
+    {"name":"OpenCode","contract":"AGENTS.md","required":true,"adapter":"generic-agent-contract"},
+    {"name":"Zed","contract":"AGENTS.md","required":true,"adapter":"generic-agent-contract"},
+    {"name":"dmux","contract":"AGENTS.md","required":true,"adapter":"generic-agent-contract"}
+  ],
+  "required_invariants": [
+    "core.zeaz.dev is DEV/controller",
+    "prod.zeaz.dev is PROD",
+    "normal CI does not apply live RouterOS configuration",
+    "live apply requires explicit operator gating",
+    "zOS-Runner uses labels self-hosted, Windows, X64",
+    "D:\\zOS-Runner is the runner path",
+    "zOS-GitHub-Runner is the scheduled task"
+  ]
+}
