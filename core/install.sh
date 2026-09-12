@@ -20,6 +20,91 @@ log() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\nWARNING: %s\n' "$*" >&2; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
+repair_hashicorp_apt_key() {
+  local url key_ascii keyring_tmp keyring source_file codename arch
+  url="https://apt.releases.hashicorp.com/gpg"
+  keyring="/usr/share/keyrings/hashicorp-archive-keyring.gpg"
+  key_ascii="$(mktemp)"
+  keyring_tmp="$(mktemp)"
+  trap 'rm -f "$key_ascii" "$keyring_tmp"' RETURN
+
+  command -v gpg >/dev/null 2>&1 || {
+    warn "HashiCorp APT signing key is stale/missing, but gpg is unavailable."
+    warn "Install gnupg from Ubuntu sources or repair the repository manually before rerunning."
+    return 1
+  }
+
+  log "Refreshing the official HashiCorp APT signing key"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --proto '=https' --tlsv1.2 "$url" -o "$key_ascii"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$key_ascii" "$url"
+  else
+    warn "Neither curl nor wget is available to retrieve the HashiCorp signing key."
+    return 1
+  fi
+
+  gpg --batch --yes --dearmor --output "$keyring_tmp" "$key_ascii"
+  gpg --batch --show-keys "$keyring_tmp" >/dev/null 2>&1 || {
+    warn "Downloaded HashiCorp key material is not a valid OpenPGP public key."
+    return 1
+  }
+
+  install -d -m 0755 /usr/share/keyrings
+  install -m 0644 "$keyring_tmp" "$keyring"
+
+  # Official HashiCorp Debian guidance uses this keyring through signed-by.
+  # Preserve an already-correct source. If the common hashicorp.list exists but
+  # lacks signed-by, back it up and normalize only that HashiCorp source file.
+  source_file="/etc/apt/sources.list.d/hashicorp.list"
+  if [[ -f "$source_file" ]] &&
+     grep -q 'apt\.releases\.hashicorp\.com' "$source_file" &&
+     ! grep -q 'signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg' "$source_file"; then
+    cp -a "$source_file" "${source_file}.bak.$(date +%Y%m%d-%H%M%S)"
+    # shellcheck disable=SC1091
+    source /etc/os-release
+    codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
+    arch="$(dpkg --print-architecture)"
+    [[ -n "$codename" ]] || {
+      warn "Cannot determine Ubuntu/Debian codename; leaving the existing HashiCorp source unchanged."
+      return 1
+    }
+    printf 'deb [arch=%s signed-by=%s] https://apt.releases.hashicorp.com %s main\n' \
+      "$arch" "$keyring" "$codename" >"$source_file"
+    chmod 0644 "$source_file"
+  fi
+
+  echo "HashiCorp APT key refreshed: $keyring"
+}
+
+apt_update_safe() {
+  local logfile
+  logfile="$(mktemp)"
+
+  if apt-get update 2>&1 | tee "$logfile"; then
+    rm -f "$logfile"
+    return 0
+  fi
+
+  if grep -q 'apt\.releases\.hashicorp\.com' "$logfile" &&
+     grep -qE 'NO_PUBKEY|signatures couldn.t be verified|repository .* is not signed' "$logfile"; then
+    warn "APT update failed because the configured HashiCorp repository signing key is missing or stale."
+    repair_hashicorp_apt_key || {
+      rm -f "$logfile"
+      die "Unable to repair the HashiCorp APT signing key securely."
+    }
+    rm -f "$logfile"
+    log "Retrying APT update after HashiCorp key refresh"
+    apt-get update
+    return 0
+  fi
+
+  warn "APT update failed for a reason not covered by the safe repository repair path."
+  warn "No APT signature checks were bypassed and no third-party repository was disabled."
+  rm -f "$logfile"
+  return 1
+}
+
 if [[ "${EUID}" -ne 0 ]]; then
   if command -v sudo >/dev/null 2>&1; then
     exec sudo --preserve-env=LAN_IFACE,WG_IFACE,LAN_CIDR,GW,SSH_PORT,SSH_ALLOW_PASSWORD,SSH_USER bash "$0" "$@"
@@ -31,7 +116,7 @@ fi
 command -v apt-get >/dev/null 2>&1 || die "apt-get is required (Ubuntu/Debian target)."
 command -v systemctl >/dev/null 2>&1 || die "systemd/systemctl is required."
 command -v ip >/dev/null 2>&1 || {
-  apt-get update
+  apt_update_safe
   DEBIAN_FRONTEND=noninteractive apt-get install -y iproute2
 }
 
@@ -85,7 +170,7 @@ primary_addr="$(ip -4 -o addr show dev "$LAN_IFACE" scope global 2>/dev/null | a
 [[ -n "$primary_addr" ]] || die "$LAN_IFACE has no global IPv4 address after refresh."
 
 log "Installing OpenSSH server"
-apt-get update
+apt_update_safe
 DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server iproute2
 install -d -m 0755 /etc/ssh/sshd_config.d
 
