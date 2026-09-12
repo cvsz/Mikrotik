@@ -75,16 +75,17 @@ upload() {
 }
 
 dry_run() {
-  local file="$1" remote
+  local file="$1" remote rc
   [[ -f "$file" ]] || { echo "File not found: $file" >&2; exit 2; }
   [[ "$file" == *.rsc ]] || { echo "Only .rsc files are supported" >&2; exit 2; }
   remote="omega-dry-run-$$-$(basename "$file")"
   scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
-  cleanup_dry_run() {
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
-  }
-  trap cleanup_dry_run RETURN
+  set +e
   ssh_mt "/import file-name=$remote verbose=yes dry-run"
+  rc=$?
+  set -e
+  ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+  return "$rc"
 }
 
 apply_file() {
@@ -100,7 +101,7 @@ apply_file() {
 
 apply_safe() {
   [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
-  local file remote cmd output
+  local file remote cmd output session_rc
   (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
   cmd=''
   for file in "$@"; do
@@ -108,27 +109,38 @@ apply_safe() {
     remote="$(basename "$file")"
     scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
     if [[ -n "$cmd" ]]; then cmd+=$'\n'; fi
-    cmd+="/import file-name=$remote verbose=yes"
+    cmd+=":do { /import file-name=$remote verbose=yes } on-error={ :put \"OMEGA_PHASE_FAIL $remote\"; :error \"OMEGA phase failed: $remote\" }"
   done
-  cmd+=$'\n/quit\n'
+  cmd+=$'\n:put "OMEGA_APPLY_PASS"\n/quit\n'
+
+  set +e
   output="$( {
     printf '\030'
     sleep 1
     printf '%s' "$cmd"
-  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 )" || {
-    printf '%s\n' "$output" >&2
-    echo 'Safe Mode apply session failed' >&2
-    exit 4
-  }
+  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 )"
+  session_rc=$?
+  set -e
+
   printf '%s\n' "$output"
+  for file in "$@"; do
+    remote="$(basename "$file")"
+    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+  done
+
+  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
   grep -Fq '[Safe Mode taken]' <<<"$output" || {
     echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
     exit 4
   }
-  for file in "$@"; do
-    remote="$(basename "$file")"
-    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null
-  done
+  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
+    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
+    exit 4
+  }
+  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
+    echo 'At least one production phase failed inside Safe Mode' >&2
+    exit 4
+  }
 }
 
 verify() {
