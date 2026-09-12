@@ -18,7 +18,7 @@ Production-safe RouterOS automation, zOS control-plane tooling, RouterOS AI/oper
 
 | Surface | Purpose |
 |---|---|
-| `routeros-skills.yml` | validates imported RouterOS skills on the self-hosted Windows x64 runner |
+| `routeros-skills.yml` | validates imported RouterOS skills on GitHub-hosted Windows; an optional manual probe can target zOS-Runner |
 | `validate.yml` | static repository, shell, safety, and secret validation |
 | `zos-build.yml` | builds zOS artifacts and OCI/GHCR packages |
 | `zOS-Runner` | repository self-hosted Windows x64 runner for RouterOS skill validation |
@@ -50,6 +50,7 @@ zOS vendors RouterOS-focused operational knowledge from `tikoci/routeros-skills`
 
 ```text
 routeros-app-yaml
+routeros-capsman
 routeros-command-tree
 routeros-container
 routeros-firewall
@@ -163,13 +164,13 @@ Persistent WireGuard `AllowedIPs` must not install `192.168.1.0/24` through the 
 
 ## Self-hosted runner
 
-The repository currently uses a Windows x64 self-hosted runner named `zOS-Runner`. GitHub Actions dispatches jobs by labels, so the skills workflow targets:
+The repository has a Windows x64 self-hosted runner named `zOS-Runner`, installed under `D:\\zOS-Runner` and launched by Scheduled Task `zOS-GitHub-Runner`. GitHub Actions dispatches jobs by labels, so the manual probe targets:
 
 ```yaml
 runs-on: [self-hosted, Windows, X64]
 ```
 
-The runner workflow is validation-only and does not apply RouterOS configuration. See `docs/SELF_HOSTED_RUNNER.md` for setup, maintenance, security, and troubleshooting.
+Normal RouterOS skills validation runs on GitHub-hosted `windows-2025`; the self-hosted runner is an explicit manual probe until its worker runtime is proven healthy end-to-end. The runner workflow is validation-only and does not apply RouterOS configuration. See `docs/SELF_HOSTED_RUNNER.md`.
 
 ## CI and safety controls
 
@@ -191,7 +192,9 @@ The runner workflow is validation-only and does not apply RouterOS configuration
 - `docs/SELF_HOSTED_RUNNER.md` — `zOS-Runner` operations and hardening
 - `docs/zOS.md` — zOS architecture and operations
 - `CHECKLIST.md` — production acceptance checklist
-- `AGENTS.md` — Codex/AI production guardrails
+- `AGENTS.md` — canonical AI/agent production contract
+- `CLAUDE.md` — Claude-specific repository guidance
+- `GEMINI.md` — Gemini-specific repository guidance
 - `SECURITY.md` — security policy
 - `CONTRIBUTING.md` — contribution workflow
 - `THIRD_PARTY_NOTICES.md` — imported/upstream attribution
