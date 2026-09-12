@@ -34,6 +34,21 @@ Two useful upstream pull requests are intentionally vendored before they merge u
 
 These two files should be reconciled with upstream once PR #19/#20 merge or materially change. Do not silently overwrite the zOS safety edits during a future sync.
 
+## Reference integrity
+
+Several upstream skills link to companion files under `references/`. zOS now keeps those relative link targets present in the vendored tree. Where the full reference has not yet been synchronized, the local file is an explicit provenance pointer to the canonical upstream document rather than a dead link.
+
+CI validates relative Markdown `.md` links under `skills/` and fails if a referenced local file is missing.
+
+## zOS safety adaptations
+
+The vendored skills are not copied blindly. zOS applies safety corrections where generic examples could be dangerous in this production context, including:
+
+- fictional documentation networks instead of the real PoliceDBC LAN gateway in generic RouterOS examples;
+- explicit lab/disposable-only gating for Netinstall empty-configuration (`-e`) examples;
+- no production credentials, private keys, or site-specific identifiers;
+- stable selectors or looked-up IDs instead of fragile hard-coded internal IDs where practical.
+
 ## Safety rules
 
 - Never import real credentials, private keys, site-specific secrets, or production identifiers.
