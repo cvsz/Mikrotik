@@ -49,6 +49,10 @@ grep -q '^ROUTEROS_UPDATE_CHANNEL=stable$' config/topology.env.example || err 's
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'safe auto-update default missing'
 grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
 
+if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then
+  err 'core/install.sh contains an APT signature-bypass pattern'
+fi
+
 if command -v shellcheck >/dev/null 2>&1; then
   mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
   (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"

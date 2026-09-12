@@ -18,11 +18,17 @@ Import the generated controller public key into the intended MikroTik management
 
 ## 2. Verify/repair CORE networking first
 
-If the CORE host needs SSH bootstrap/recovery, run:
+If the CORE host needs SSH bootstrap/recovery, update the repository as its normal owner and then run the privileged installer:
 
 ```bash
+cd /home/cvsz/zos
+git pull --ff-only origin main
 sudo ./core/install.sh
 ```
+
+Do not run `git pull` from a root shell in a user-owned working tree. If already root, use `sudo -u cvsz git -C /home/cvsz/zos pull --ff-only origin main` rather than weakening Git's `safe.directory` ownership protection.
+
+If the installer's APT refresh encounters a stale/missing HashiCorp signing key, it refreshes the official keyring from `apt.releases.hashicorp.com/gpg` and retries without disabling APT signature verification.
 
 The installer is deliberately conservative: it removes only the conflicting runtime `192.168.1.0/24` route from `policedbc`, refuses to continue if the gateway is not selected through `ens33`, installs/enables OpenSSH, validates `sshd`, and changes UFW only when UFW is already active. Persistent WireGuard/network-manager configuration remains operator-controlled.
 

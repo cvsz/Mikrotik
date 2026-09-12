@@ -44,3 +44,38 @@ default via 192.168.1.1 dev ens33
 ```
 
 The physical LAN must not be present in the WireGuard `AllowedIPs` for `policedbc`.
+
+
+## Update the repository without Git ownership errors
+
+The working tree at `/home/cvsz/zos` is owned by the normal `cvsz` account. Do not run `git pull` from a root shell in that user-owned repository. Git correctly rejects that as dubious ownership.
+
+Preferred flow:
+
+```bash
+exit                         # leave the root shell, if currently root
+cd /home/cvsz/zos
+git pull --ff-only origin main
+sudo ./core/install.sh
+```
+
+If you must remain in a root shell, execute Git as the repository owner instead of adding a global `safe.directory` exception:
+
+```bash
+sudo -u cvsz git -C /home/cvsz/zos pull --ff-only origin main
+./core/install.sh
+```
+
+## HashiCorp APT signing-key recovery
+
+If `apt-get update` fails on `apt.releases.hashicorp.com` with `NO_PUBKEY` or a stale signing key, the installer now follows HashiCorp's signed-repository model:
+
+- downloads the signing key only from `https://apt.releases.hashicorp.com/gpg`;
+- validates that the download is OpenPGP public-key material;
+- installs it at `/usr/share/keyrings/hashicorp-archive-keyring.gpg`;
+- preserves a correctly configured `signed-by` source;
+- backs up and normalizes the common `/etc/apt/sources.list.d/hashicorp.list` only when it lacks `signed-by`;
+- retries `apt-get update`;
+- never uses `trusted=yes`, `--allow-unauthenticated`, or an APT signature bypass.
+
+If APT fails for a different repository or a different cause, the installer stops instead of silently disabling security checks.
