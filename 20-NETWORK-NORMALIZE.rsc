@@ -2,18 +2,29 @@
 :foreach p in={"ether2";"ether3";"ether4";"ether5";"ether6";"ether7";"ether8";"ether9";"ether10";"sfp-sfpplus1"} do={
     :if ([:len [/interface find where name=$p]] > 0) do={
         :if ([:len [/interface bridge port find where bridge="bridge-lan" and interface=$p]] = 0) do={
+            :if ([:len [/interface bridge port find where interface=$p]] > 0) do={
+                :error ("interface " . $p . " already belongs to another bridge; refusing takeover")
+            }
             /interface bridge port add bridge=bridge-lan interface=$p comment="OMEGA-MANAGED"
         }
     }
 }
+
+# A duplicate LAN gateway on ether2 is only removed when zOS already owns the
+# address. An unowned address is preserved and causes the phase to fail closed.
 :foreach a in=[/ip address find where address="192.168.1.1/24" and interface="ether2"] do={
+    :if ([/ip address get $a comment] != "OMEGA-MANAGED") do={
+        :error "unowned 192.168.1.1/24 on ether2 detected; refusing deletion"
+    }
     /ip address remove $a
-    :log warning "OMEGA removed duplicate LAN gateway from ether2"
+    :log warning "OMEGA removed zOS-owned duplicate LAN gateway from ether2"
 }
+
 /interface list
-:if ([:len [find where name="WAN"]] = 0) do={ add name=WAN }
-:if ([:len [find where name="LAN"]] = 0) do={ add name=LAN }
-:if ([:len [find where name="VPN"]] = 0) do={ add name=VPN }
+:if ([:len [find where name="WAN"]] = 0) do={ add name=WAN comment="OMEGA-MANAGED" }
+:if ([:len [find where name="LAN"]] = 0) do={ add name=LAN comment="OMEGA-MANAGED" }
+:if ([:len [find where name="VPN"]] = 0) do={ add name=VPN comment="OMEGA-MANAGED" }
+
 /interface list member
 :if ([:len [find where list="WAN" and interface="ether1"]] = 0) do={ add list=WAN interface=ether1 comment="OMEGA-MANAGED" }
 :if ([:len [find where list="LAN" and interface="bridge-lan"]] = 0) do={ add list=LAN interface=bridge-lan comment="OMEGA-MANAGED" }
