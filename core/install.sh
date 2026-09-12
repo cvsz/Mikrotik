@@ -26,7 +26,7 @@ repair_hashicorp_apt_key() {
   keyring="/usr/share/keyrings/hashicorp-archive-keyring.gpg"
   key_ascii="$(mktemp)"
   keyring_tmp="$(mktemp)"
-  trap 'rm -f "$key_ascii" "$keyring_tmp"' RETURN
+  trap 'rm -f "${key_ascii:-}" "${keyring_tmp:-}"; trap - RETURN' RETURN
 
   command -v gpg >/dev/null 2>&1 || {
     warn "HashiCorp APT signing key is stale/missing, but gpg is unavailable."
