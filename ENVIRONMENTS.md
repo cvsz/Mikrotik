@@ -6,8 +6,22 @@
 |---|---|---|---|
 | DEV/controller | `core.zeaz.dev` | `zeazdev` | LAN is DHCP/runtime evidence; WG peer `10.8.0.2/32` is known |
 | PROD | `prod.zeaz.dev` | `zeazdev` | LAN/WG addresses remain unset until verified |
+| CI runner VM | `zeaz` | `zOS-Runner` | Windows x64; trusted GitHub Actions execution surface only |
 
 The desired automation identity is a target configuration, not proof that the account already exists on every host. Existing operator/recovery accounts are valid when explicitly selected and secured.
+
+## Windows runner VM
+
+The separate Windows VM `zeaz` hosts the repository-scoped self-hosted runner:
+
+~~~text
+runner name:    zOS-Runner
+root:           D:\zOS-Runner
+scheduled task: zOS-GitHub-Runner
+labels:         self-hosted, Windows, X64
+~~~
+
+Its configuration template is `runner/.env.example`. This VM is not a source of RouterOS topology truth and must not receive ordinary live-production mutation authority.
 
 ## Router relationship
 
