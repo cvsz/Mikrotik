@@ -45,6 +45,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $required = @(
             'routeros-app-yaml',
+            'routeros-capsman',
             'routeros-command-tree',
             'routeros-container',
             'routeros-firewall',
@@ -90,7 +91,7 @@ jobs:
         run: |
           "## zOS RouterOS Skills" >> $env:GITHUB_STEP_SUMMARY
           "- Platform: **$env:RUNNER_OS / $env:RUNNER_ARCH**" >> $env:GITHUB_STEP_SUMMARY
-          "- Imported skills: **14**" >> $env:GITHUB_STEP_SUMMARY
+          "- Imported skills: **15**" >> $env:GITHUB_STEP_SUMMARY
           "- Result: **PASS**" >> $env:GITHUB_STEP_SUMMARY
 
   self-hosted-probe:
