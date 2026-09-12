@@ -47,7 +47,21 @@ grep -q 'core.zeaz.dev' ENVIRONMENTS.md || err 'canonical DEV FQDN missing'
 grep -q 'prod.zeaz.dev' ENVIRONMENTS.md || err 'canonical PROD FQDN missing'
 grep -q '^ROUTEROS_UPDATE_CHANNEL=stable$' config/topology.env.example || err 'stable RouterOS update channel missing'
 grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'safe auto-update default missing'
-grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
+grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0
+if command -v shellcheck >/dev/null 2>&1; then
+  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
+  (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
+else
+  echo 'WARN: shellcheck not installed; shell validation skipped'
+fi
+
+(( fail == 0 )) || exit 1
+echo 'Repository safety validation PASS'
+ config/topology.env.example || err 'safe reboot default missing'
+
+if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then
+  err 'core/install.sh contains an APT signature-bypass pattern'
+fi
 
 if command -v shellcheck >/dev/null 2>&1; then
   mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
