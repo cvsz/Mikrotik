@@ -25,6 +25,7 @@ required=(
   tools/e2e-check.sh
   tools/install-controller.sh
   tools/install-update-monitor.sh
+  core/install.sh
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh
   .github/workflows/validate.yml
   .github/workflows/zos-build.yml
@@ -49,7 +50,7 @@ grep -q '^OMEGA_AUTO_ROUTEROS_UPDATE=0$' config/topology.env.example || err 'saf
 grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe reboot default missing'
 
 if command -v shellcheck >/dev/null 2>&1; then
-  mapfile -t shells < <(find tools zOS -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
+  mapfile -t shells < <(find tools zOS core -type f \( -name '*.sh' -o -path 'zOS/bin/zos' \) -print)
   (("${#shells[@]}" == 0)) || shellcheck "${shells[@]}"
 else
   echo 'WARN: shellcheck not installed; shell validation skipped'
