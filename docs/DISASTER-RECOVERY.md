@@ -1,68 +1,59 @@
 # Disaster Recovery
 
-## Recovery priorities
+## Priority order
 
-1. Preserve or regain local/MAC/console management.
-2. Restore `bridge-lan` and `192.168.1.1/24`.
-3. Restore WAN `192.168.205.251/21` and gateway `192.168.200.1`.
-4. Restore DHCP/DNS.
-5. Restore WireGuard using trusted known key material.
-6. Verify firewall/NAT and then application connectivity.
+1. regain a trusted local/MAC/console/recovery management path;
+2. restore RouterOS LAN management (`192.168.1.1/24`);
+3. restore WAN/upstream routing;
+4. restore DHCP/DNS;
+5. restore WireGuard with trusted known key material;
+6. restore CORE route/SSH invariants;
+7. verify firewall/NAT and application reachability;
+8. capture post-recovery evidence.
 
-## Safe Mode rollback
+## RouterOS Safe Mode
 
-Use RouterOS Safe Mode for risky live production changes where appropriate. If management is lost and the Safe Mode session terminates abnormally, Safe Mode can roll back those changes. Safe Mode is not a substitute for backups.
+Use Safe Mode for risky changes where supported. An abnormal loss of the Safe Mode session can roll back those changes, but Safe Mode is not a substitute for an export and backup.
 
-## Text export recovery
+## Backups
 
-Controller-side exports under `backups/` are evidence and recovery inputs. Review them before import; do not blindly restore an export over a topology that has intentionally changed.
-
-## Binary backup recovery
-
-Binary `.backup` files are device/configuration-sensitive and should be treated as last-resort full-state recovery. Protect them as sensitive material.
+Text exports are reviewable recovery inputs. Binary `.backup` files are sensitive and device/configuration-specific; keep them protected and out of Git.
 
 ## CORE route recovery
 
-After router recovery, also verify DEV/CORE:
+Required state:
 
-```text
+~~~text
 default via 192.168.1.1 dev ens33
 192.168.1.0/24 dev ens33
 10.8.0.0/24 dev policedbc
-```
+~~~
 
-If the physical LAN is claimed by `policedbc`, repair the local route and remove the physical LAN from persistent WireGuard `AllowedIPs`.
+Use `docs/NETWORK-RECOVERY.md`. Persistent `policedbc` `AllowedIPs` must not include the physical LAN.
 
-## Self-hosted runner recovery
+## CORE SSH recovery
 
-Runner location and launch model:
+Use `core/install.sh` / `docs/SSH-HARDENING.md`. Do not disable the last working authentication path. Prove public-key access from a separate client before closing the recovery session.
 
-```text
+## Package/APT trust failure
+
+If a third-party repository signature cannot be verified, preserve signature enforcement and repair trust from reviewed authoritative key material. Never restore service by enabling insecure APT trust globally.
+
+## GitHub runner recovery
+
+Runner path/task:
+
+~~~text
 D:\zOS-Runner
 Scheduled Task: zOS-GitHub-Runner
-```
+~~~
 
-If the listener is unhealthy:
+Restart the single scheduled listener before considering re-registration. Preserve runner credentials and never commit them.
 
-```powershell
-Stop-ScheduledTask -TaskName 'zOS-GitHub-Runner'
-Get-Process Runner.Listener,Runner.Worker -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-ScheduledTask -TaskName 'zOS-GitHub-Runner'
-```
+## Recovery verification
 
-Do not re-register the runner merely because a manually launched second `run.cmd` reports a session conflict.
+After recovery, repeat repository validation where code changed, then live CORE/router checks. Reboot tests are required when the incident involved persistent network or SSH configuration.
 
-## Minimal RouterOS validation
+## Disaster-recovery exercise
 
-```text
-/ip address print
-/ip route print where dst-address=0.0.0.0/0
-/interface bridge port print
-/ip dhcp-server print detail
-/interface wireguard print detail
-/interface wireguard peers print detail
-/ip service print
-/ping 192.168.200.1 count=3
-/ping 1.1.1.1 count=3
-:put [/resolve cloudflare.com]
-```
+A DR plan is not fully evidenced until restore/rollback has been exercised in an appropriate environment and the result recorded. CI passing is not restore evidence.

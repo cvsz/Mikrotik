@@ -1,45 +1,68 @@
 # Recommended GitHub Settings
 
-Apply these repository settings for `cvsz/Mikrotik` where supported by the account/plan.
+Repository: `cvsz/zos`.
+
+These are recommended administrative settings. They are not claims about account-plan features that have not been verified in the UI.
 
 ## General
-- Default branch: `main`
-- Allow squash merge: enabled
-- Allow rebase merge: enabled
-- Delete head branches automatically: enabled
-- Issues: enabled
-- Projects: optional
-- Wiki: disabled; keep documentation in repo
 
-## Branch protection / ruleset for `main`
-- Require pull request before merging
-- Require at least one approval when collaborating with others
-- Dismiss stale approvals on new commits
-- Require status checks: `validate-routeros-stack`, `build-zos`
-- Require branch to be up to date before merge
-- Block force pushes
-- Block branch deletion
-- Require conversation resolution
+- default branch: `main`;
+- squash merge: enabled/preferred for focused PRs;
+- automatic deletion of merged head branches: enabled;
+- Issues: enabled;
+- Discussions: optional;
+- Wiki: disabled or unused; canonical documentation lives in-repo.
 
-## Actions
-- Default workflow permissions: read repository contents
-- Allow explicit package write only in the zOS build workflow
-- Do not place production router credentials in workflow secrets unless a future deployment design explicitly requires it
-- Live router deployment from GitHub-hosted runners is intentionally unsupported
+## Main branch ruleset
 
-## Pages
-Use GitHub Actions as the Pages source. The Pages workflow publishes the static documentation portal only; it does not expose topology secrets.
+Recommended:
+
+- require pull request before merge;
+- require conversation resolution;
+- require status checks from repository validation/build workflows;
+- require branch to be up to date where practical;
+- block force pushes and branch deletion;
+- require approvals when additional maintainers/reviewers exist;
+- optionally require signed commits/tags if an organization-wide signing policy is adopted.
+
+When configuring required checks, select the exact check contexts GitHub presents after a successful workflow run rather than guessing names from YAML filenames.
+
+## Actions permissions
+
+- default workflow token permissions: read repository contents;
+- package write is granted only to `zos-build.yml` where required;
+- ordinary workflows do not receive production router credentials;
+- untrusted fork code must not run on the privileged self-hosted runner;
+- third-party Actions should be pinned/reviewed according to the repository dependency policy when one is adopted.
+
+## Security features
+
+Enable where supported:
+
+- Dependabot alerts/security updates;
+- secret scanning and push protection;
+- private vulnerability reporting;
+- CodeQL/default setup for supported languages;
+- rules preventing accidental exposure of Actions secrets to untrusted events.
 
 ## Packages
-The `build-zos` workflow publishes the controller-side OCI package to:
 
-`ghcr.io/cvsz/mikrotik-zos`
+Current controller image path:
 
-Keep the package private unless public distribution is intentionally approved.
+~~~text
+ghcr.io/cvsz/mikrotik-zos
+~~~
 
-## Security
-- Enable Dependabot alerts and security updates
-- Enable secret scanning where available
-- Enable push protection where available
-- Enable private vulnerability reporting where available
-- Enable CodeQL/default setup if supported for the repository languages
+Package visibility is an owner decision. A public GitHub repository does not require the package to be public.
+
+## Pages
+
+No GitHub Pages publication workflow is currently part of the documented production path. Do not claim a Pages site is deployed until a reviewed workflow/site exists.
+
+## Self-hosted runner
+
+Keep `zOS-Runner` restricted to trusted repository workloads and a single listener session. See `docs/SELF_HOSTED_RUNNER.md`.
+
+## Community health
+
+Keep `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, issue templates, pull-request template, and CODEOWNERS current.

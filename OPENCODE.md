@@ -2,18 +2,12 @@
 
 Use `AGENTS.md` as the canonical operating contract.
 
-## OpenCode adapter rules
+Resolve repository state before editing, preserve production fail-closed behavior, do not invent topology or credentials, and keep behavior/evidence/documentation changes together.
 
-- Resolve repository state before proposing or applying edits.
-- Keep production RouterOS work fail-closed and operator-gated.
-- Do not invent PROD addresses, credentials, runner labels, or topology.
-- Preserve documentation synchronization across README, runbooks, security policy, and harness contracts when behavior changes.
-- Use `evidence/` fixtures to demonstrate analyzer, retrieval, PR salvage, triage, and CI-diagnosis behavior instead of relying on prose claims.
-- Never embed real production secrets or raw sensitive logs in fixtures.
+Use `docs/INDEX.md` for documentation ownership and `docs/TESTING.md` for the validation matrix.
 
-## Compatibility checks
-
-```bash
+~~~bash
 make validate
+make docs
 make evidence
-```
+~~~

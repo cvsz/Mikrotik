@@ -1,31 +1,20 @@
 # Claude Instructions for zOS
 
-Read and follow `AGENTS.md` first. It is the canonical repository operating contract.
+`AGENTS.md` is the canonical repository and production-safety contract.
 
-## Claude-specific rules
+- inspect current files and runtime evidence before proposing changes;
+- keep RouterOS mutation operator-gated;
+- do not invent PROD addresses or successful live results;
+- preserve SSH key-only and APT signature-verification controls;
+- do not use CI to bypass recovery or review requirements;
+- keep project documentation synchronized through `docs/INDEX.md`.
 
-- Inspect current repository state before editing.
-- Prefer minimal, reviewable, idempotent changes.
-- Preserve audit → backup → dry-run → recovery/Safe Mode → explicit gate → verification sequencing.
-- Do not convert production-sensitive RouterOS work into unattended CI.
-- Do not infer unverified PROD addresses or reintroduce legacy DBC naming.
-- Do not weaken secret scanning, destructive-pattern checks, or live-apply gates just to make CI green.
-- Treat RouterOS REST `/rest/execute` HTTP status as transport evidence only; verify the resulting state separately.
-- Preserve third-party attribution and zOS safety edits when syncing vendored RouterOS skills.
+Before finishing a repository change:
 
-## Canonical environment
+~~~bash
+make validate
+make docs
+make evidence
+~~~
 
-- DEV/controller: `core.zeaz.dev`
-- PROD: `prod.zeaz.dev`
-- SSH user: `zeazdev`
-
-## Self-hosted runner
-
-- Name: `zOS-Runner`
-- Path: `D:\zOS-Runner`
-- Scheduled Task: `zOS-GitHub-Runner`
-- Labels: `self-hosted`, `Windows`, `X64`
-
-Do not instruct operators to start a second `run.cmd` while the Scheduled Task listener is active.
-
-Before finishing a change, ensure implementation, validation, and documentation remain synchronized.
+Use `docs/GITHUB-OPERATIONS.md` for runner/CI/package conventions and `docs/PRODUCTION-READINESS.md` for acceptance language.

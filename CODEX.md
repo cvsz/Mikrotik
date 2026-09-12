@@ -1,26 +1,17 @@
 # Codex Instructions for zOS
 
-Read and follow `AGENTS.md` first. It is the canonical operating contract for this repository.
+Read `AGENTS.md` first; it is the canonical contract.
 
-## Codex adapter rules
+Codex should inspect current repository state before editing, prefer focused reviewable diffs, preserve fail-closed production gates, and never infer live success from repository state alone.
 
-- Inspect repository state before editing and prefer the smallest reviewable change.
-- Preserve zOS production safety gates: audit, backup, dry-run, recovery/Safe Mode where appropriate, explicit operator opt-in, and post-change verification.
-- Do not turn normal CI into a live RouterOS control channel.
-- Keep `core.zeaz.dev` as DEV/controller and `prod.zeaz.dev` as PROD.
-- Treat `zOS-Runner` as a validation surface unless a workflow explicitly defines a safe operator-gated action.
-- Keep imported RouterOS skill provenance and zOS safety adaptations intact.
-- When changing analyzer/evaluator behavior, update the deterministic evidence corpus under `evidence/` and keep expected outputs reviewable.
+## Completion checks
 
-## Required local checks
-
-```bash
+~~~bash
 make validate
+make docs
 make evidence
-```
+~~~
 
-If the change affects security evidence generation, also run:
+Run `make security-evidence` when security-evidence behavior changes. Use runtime checks only when the task explicitly involves the live environment.
 
-```bash
-make security-evidence
-```
+Documentation ownership and the project/vendored boundary are defined in `docs/INDEX.md`. GitHub workflow/release behavior is defined in `docs/GITHUB-OPERATIONS.md`.

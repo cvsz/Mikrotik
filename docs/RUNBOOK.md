@@ -1,122 +1,84 @@
 # ZeaZDev MikroTik End-to-End Runbook
 
-## 1. Prepare DEV/CORE controller
+This is the primary operator sequence. Detailed recovery, SSH, GitHub, and release procedures are linked from `docs/INDEX.md`.
 
-On `core.zeaz.dev` as `zeazdev`:
+## 1. Prepare the controller
 
-```bash
+~~~bash
 git clone https://github.com/cvsz/zos.git
 cd zos
 cp config/topology.env.example config/topology.env
 chmod 600 config/topology.env
-chmod +x tools/*.sh zOS/bin/zos zOS/install.sh
 ./tools/install-controller.sh
 ./zOS/bin/zos doctor
-```
+~~~
 
-Import the generated controller public key into the intended MikroTik management user through a verified management session. Never commit private keys or passwords.
+Review every topology value before use. Empty/unknown values must remain unknown until verified.
 
-## 2. Verify/repair CORE networking first
+## 2. Establish CORE network and SSH
 
-If CORE needs SSH bootstrap/recovery, update the repository as its normal owner and then run the privileged installer:
+Update the repository as its owner, not root:
 
-```bash
-cd /home/cvsz/zos
+~~~bash
+cd /home/<repo-owner>/zos
 git pull --ff-only origin main
 sudo ./core/install.sh
-```
-
-Do not run `git pull` from a root shell in a user-owned working tree. If already root, execute Git as the repository owner instead of weakening Git's `safe.directory` protection.
-
-### SSH production baseline
-
-`core/install.sh` now defaults to:
-
-```text
-SSH_ALLOW_PASSWORD=no
-```
-
-It refuses to write a password-disabled SSH configuration unless the selected `SSH_USER` already has a non-empty `~/.ssh/authorized_keys` file. If emergency bootstrap access is genuinely required before a key can be installed, make that exception explicit for that run only:
-
-```bash
-sudo SSH_ALLOW_PASSWORD=yes ./core/install.sh
-```
-
-After key login is proven, rerun with the default fail-closed setting.
-
-### HashiCorp APT key recovery
-
-If APT encounters a stale/missing HashiCorp repository key, the installer fetches only the official `apt.releases.hashicorp.com/gpg` key and verifies the pinned package-signing fingerprint before installing it:
-
-```text
-D55C 0D1A C78A 8D81 26CB 631C FC9C A96A CA02 6560
-```
-
-A mismatch is fatal. The installer never uses `trusted=yes`, `--allow-unauthenticated`, or another APT signature bypass.
-
-The installer remains deliberately conservative: it removes only the conflicting runtime `192.168.1.0/24` route from `policedbc`, refuses to continue if the gateway is not selected through `ens33`, installs/enables OpenSSH, validates `sshd`, and changes UFW only when UFW is already active. Persistent WireGuard/network-manager configuration remains operator-controlled.
-
-Then verify:
-
-```bash
-make core-status
 make core-check
-```
+make core-find-conflict
+~~~
 
-Expected routing:
+The secure installer path requires an existing public key and defaults to `PasswordAuthentication no`. Keep the current recovery session open until a separate client proves key-only login. See `docs/SSH-HARDENING.md`.
 
-```text
+Required routing:
+
+~~~text
 default via 192.168.1.1 dev ens33
 192.168.1.0/24 dev ens33
 10.8.0.0/24 dev policedbc
-```
+~~~
 
-If `ens33` has carrier but the physical LAN is incorrectly routed through `policedbc`:
+Active `policedbc` configuration must not route `192.168.1.0/24`. Backups may retain the old value for rollback.
 
-```bash
-make core-repair
-make core-find-conflict
-```
+After a CORE recovery, reboot and repeat the route/WireGuard/SSH checks before claiming persistent success.
 
-The persistent WireGuard configuration must not install `192.168.1.0/24` through `policedbc`.
+## 3. Validate repository state
 
-## 3. Verify router state
-
-```bash
-make status
-make audit
-```
-
-Stop if the real router baseline differs materially from `config/topology.env`.
-
-## 4. Back up
-
-```bash
-make backup
-```
-
-Keep text export evidence and the RouterOS backup in protected storage before high-risk changes.
-
-## 5. Validate repository and evidence
-
-```bash
+~~~bash
 make validate
+make docs
 make evidence
 make security-evidence
 ./zOS/bin/zos help
-```
+~~~
 
-Repository/CI success is necessary but not proof of live production readiness; retain generated evidence and separately verify runtime state.
+Green repository checks are necessary but are not proof of live production readiness.
 
-## 6. Dry-run the active phase set
+## 4. Inspect router state
 
-```bash
+~~~bash
+make status
+make audit
+~~~
+
+Stop when the observed router materially differs from the documented baseline. Resolve drift before applying planned changes.
+
+## 5. Back up
+
+~~~bash
+make backup
+~~~
+
+Store text export evidence and binary backups in protected storage outside source control.
+
+## 6. Dry-run intended phases
+
+~~~bash
 make dry-run
-```
+~~~
 
-Active phases:
+Active production phases:
 
-```text
+~~~text
 00-PRECHECK.rsc
 10-BACKUP-SNAPSHOT.rsc
 20-NETWORK-NORMALIZE.rsc
@@ -126,58 +88,44 @@ Active phases:
 60-OBSERVABILITY.rsc
 90-EXPORT-EVIDENCE.rsc
 99-VERIFY-HEALTH.rsc
-```
+~~~
 
-Do not execute deprecated historical phase files as the production stack.
+Historical `01-` through `07-` and old one-click paths are not the current production phase set.
 
-## 7. Production apply
+## 7. Apply only in an approved change window
 
-Use a local or recovery-capable management session and RouterOS Safe Mode for risky changes. Only after backup and dry-run are clean:
+Use a recovery-capable session and Safe Mode or another verified rollback path for risky RouterOS work.
 
-```bash
+~~~bash
 export OMEGA_ALLOW_LIVE_APPLY=1
 make apply
-```
+~~~
 
 Do not exit Safe Mode until independent verification succeeds.
 
 ## 8. Verify
 
-```bash
+~~~bash
 make verify
 make e2e
-```
+~~~
 
-Independently verify management, WAN/default route, DNS, WireGuard handshake, firewall/NAT, and target behavior.
+Independently verify management, WAN/default route, LAN/DHCP/DNS, WireGuard handshake, firewall/NAT, and intended service reachability.
 
-## 9. PROD host
+## 9. Update automation
 
-Canonical production endpoint is `prod.zeaz.dev`, user `zeazdev`. `PROD_LAN_IP` and `PROD_WG_IP` remain unset until observed. Do not invent them.
+RouterOS update checks are safe/read-only by default:
 
-## 10. Self-hosted runner
+~~~bash
+make update-check
+~~~
 
-The Windows runner is `zOS-Runner` at `D:\zOS-Runner`, launched by Scheduled Task `zOS-GitHub-Runner`.
+Unattended installation requires both `OMEGA_AUTO_ROUTEROS_UPDATE=1` and `OMEGA_ALLOW_ROUTER_REBOOT=1`. Do not enable them permanently without an approved operations design.
 
-Normal RouterOS skills validation runs on GitHub-hosted Windows. Use the self-hosted runner only through the explicit manual probe until end-to-end job execution is proven healthy.
+## 10. GitHub and runner
 
-Do not start a second manual `run.cmd` while the Scheduled Task listener is active.
+CI validates/builds/packages. It does not perform ordinary live production mutation. The optional `zOS-Runner` probe is trusted validation only. See `docs/GITHUB-OPERATIONS.md` and `docs/SELF_HOSTED_RUNNER.md`.
 
-## 11. Production acceptance criteria
+## 11. Acceptance
 
-A deployment is production-ready only when all applicable items are evidenced:
-
-- repository validation and evidence workflows pass;
-- CORE has stable carrier, IPv4 and default route through `ens33`;
-- SSH key login is proven and password authentication is disabled unless an explicit temporary exception is documented;
-- HashiCorp APT package key matches the pinned reviewed fingerprint if repair was required;
-- router precheck/audit passes;
-- backup/export exists and is stored safely;
-- every intended RouterOS phase dry-runs cleanly;
-- management remains reachable during/after change;
-- WAN/default route remains correct;
-- LAN DHCP/DNS works;
-- WireGuard handshake is current;
-- firewall/NAT behavior is verified;
-- intended DEV/PROD reachability is verified;
-- `make verify` and `make e2e` pass;
-- post-change export/evidence is retained.
+Use `CHECKLIST.md` and `docs/PRODUCTION-READINESS.md`. Record the commit/release, relevant CI runs, pre-change audit, backup identifiers, dry-run result, live-change approval if any, post-change verification, rollback outcome if exercised, and operator timestamp.

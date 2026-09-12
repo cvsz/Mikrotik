@@ -1,19 +1,19 @@
 # Security Evidence
 
-zOS security evidence is generated from the repository state rather than hand-written as a claim of external certification.
+zOS generates repository-derived security evidence instead of making unsupported certification claims.
 
-The CI evidence workflow produces:
+Generated artifacts include:
 
-- `spdx-files.json` — SPDX 2.3 file inventory with SHA-256 checksums for tracked files;
-- `secret-audit.sarif` — SARIF 2.1.0 output from the repository secret-pattern audit;
-- `audit-report.json` — summary of checked files, findings, and generator version.
-
-These artifacts are evidence of the checks performed by this repository only. They are **not** a substitute for an independent penetration test, CodeQL/third-party SAST, dependency vulnerability scanning, or a formal compliance attestation.
+- `spdx-files.json` — SPDX 2.3 file inventory/checksums;
+- `secret-audit.sarif` — SARIF output from repository secret-pattern checks;
+- `audit-report.json` — generator/check summary.
 
 Generate locally:
 
-```bash
-python3 tools/generate-security-evidence.py --out artifacts/security
-```
+~~~bash
+make security-evidence
+~~~
 
-The generator is fail-closed: if a high-confidence secret pattern is detected in a tracked file, it records a SARIF finding and returns a non-zero exit code.
+The generator fails closed when a high-confidence tracked-source secret pattern is found.
+
+These artifacts are not a penetration test, formal compliance attestation, dependency vulnerability assessment, or proof that the live network is securely configured. See `SECURITY.md` and `docs/EVIDENCE-MATRIX.md`.

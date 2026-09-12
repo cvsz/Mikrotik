@@ -1,59 +1,73 @@
-# CI Failure-Mode Troubleshooting
+# CI and Operator Failure-Mode Troubleshooting
 
-This runbook maps known workflow failure signatures to a safe diagnostic path. The machine-readable reference set is `evidence/ci/failure-modes.jsonl`.
+This runbook maps recurring failure signatures to safe diagnosis. Keep evidence sanitized.
 
-## Broken relative Markdown reference
+## `Permission denied` / exit 126 for `./tools/*.sh`
 
-Meaning: a vendored skill points at a local `.md` file that is not present in the repository.
+Meaning: the script is not executable in the checkout or the filesystem/mount disallows execution.
 
 Actions:
 
-1. identify the source skill and exact relative target;
-2. add the missing vendored/provenance file or remove the stale reference;
-3. rerun `zOS RouterOS Skills Validation`;
-4. do not disable link validation to make CI green.
+1. run `git ls-files -s <path>` and confirm mode `100755` for operational entry points;
+2. run `ls -l <path>`;
+3. verify the checkout/mount is not `noexec`;
+4. fix the Git mode in the repository rather than teaching normal workflows to rely on ad-hoc `chmod`.
+
+## Git `detected dubious ownership`
+
+Meaning: Git is correctly refusing a repository owned by another account.
+
+Actions:
+
+- leave the root shell and run Git as the repository owner; or
+- execute Git explicitly as that owner.
+
+Do not add a broad global `safe.directory` exception merely to make root operate in a user-owned checkout.
+
+## SSH `Permission denied (publickey)`
+
+Meaning: TCP/22 and sshd may be reachable, but the target account did not accept an offered key.
+
+Check `authorized_keys`, ownership/mode, the client identity selected, `sshd -T`, and server logs. Keep the recovery session open until key-only login is proven.
+
+## APT `NO_PUBKEY FC9CA96ACA026560` for HashiCorp
+
+`core/install.sh` has a fail-closed repair path using the reviewed HashiCorp endpoint and pinned fingerprint. Do not disable APT signature verification or mark the repository trusted.
+
+## WireGuard conflict output shows only `.bak.*`
+
+Historical backup files may contain the old physical-LAN `AllowedIPs` line. `make core-find-conflict` evaluates active `/etc/wireguard/*.conf` files and intentionally ignores backups for active-state PASS/FAIL.
+
+## Broken project Markdown reference
+
+Run:
+
+~~~bash
+make docs
+~~~
+
+Fix the relative link or add the intended document. Do not weaken the documentation validator to preserve a stale reference.
+
+## Broken vendored skill Markdown reference
+
+Use the RouterOS skills workflow and preserve upstream/provenance semantics. Project documentation validation and vendored skill validation are separate by design.
 
 ## Runner session conflict
 
-Signature: `A session for this runner already exists`.
+`A session for this runner already exists` usually means a second listener was started. Inspect Scheduled Task `zOS-GitHub-Runner`; do not re-register the runner just because another `run.cmd` instance conflicts.
 
-Meaning: another listener already owns the registered runner session.
+## Runner worker initialization failure
 
-For zOS, first inspect Scheduled Task `zOS-GitHub-Runner`. Do not start a second `D:\zOS-Runner\run.cmd` while the scheduled listener is active.
-
-## Runner worker initialization / secret masker
-
-Signature includes `PowerShellPreAmpersandEscape` or `Worker.InitializeSecretMasker` before workflow step 1.
-
-Actions:
-
-1. inspect the newest `D:\zOS-Runner\_diag\Worker_*.log` and `Runner_*.log`;
-2. run the minimal no-secret manual probe;
-3. inspect repository/environment variables for malformed values without printing secret contents;
-4. update/reinstall the runner only if the failure is reproducible and the registration path is understood.
+If failure occurs before workflow step 1, inspect the newest runner diagnostics under `D:\zOS-Runner\_diag`. Treat that as runner-runtime evidence, not a RouterOS test failure.
 
 ## Secret scanner finding
 
-Meaning: repository validation detected a high-confidence credential/private-key pattern.
+Remove and rotate a real secret immediately. For a false positive, narrow only the specific rule/case; do not globally weaken secret protection.
 
-Actions:
+## `ImagePullBackOff`
 
-1. inspect the exact matched path;
-2. remove/rotate real secrets immediately if present;
-3. if it is a false positive, narrow the rule around the specific benign syntax without weakening coverage globally;
-4. rerun both normal validation and generated security evidence.
+Verify the authoritative image name/tag, registry access, credentials, architecture, and existence of the replacement tag before changing manifests.
 
-## Image pull failure
+## Evidence hygiene
 
-Signature: `ImagePullBackOff`.
-
-Actions:
-
-1. verify the exact image registry/repository/tag from an authoritative source;
-2. check registry credentials and network access;
-3. verify architecture compatibility;
-4. change the tag only after confirming the replacement exists.
-
-## Evidence capture rule
-
-Store only sanitized signatures and expected diagnoses in the repository. Do not commit raw logs containing tokens, private URLs, credentials, runner registration material, or production secrets.
+Do not commit raw runner logs, credentials, private URLs, private keys, tokens, binary backups, or sensitive production exports. Commit only sanitized signatures and durable diagnoses.

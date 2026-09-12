@@ -1,30 +1,32 @@
 # Evidence Matrix
 
-zOS maintains reviewable evidence for automation behavior instead of relying on undocumented assumptions.
+zOS distinguishes deterministic repository evidence from live production evidence.
 
 | Area | Evidence | Validation |
 |---|---|---|
-| Deep analyzer corpus | `evidence/corpus/analyzer/golden.jsonl` | schema, unique IDs, severity/code expectations |
-| RAG/evaluator comparison | `evidence/corpus/rag/ranking.jsonl` | expected top-1 and ordered-prefix invariants |
-| PR salvage/review corpus | `evidence/corpus/pr-salvage/cases.jsonl` | expected cleanup/salvage action vocabulary |
-| Discussion triage corpus | `evidence/corpus/discussions/triage.jsonl` | expected informational/answered/no-response/actionable actions |
-| Harness compatibility | `evidence/harness/compatibility.json` plus adapter docs | all required harness contracts exist and point to `AGENTS.md` |
-| Security evidence | generated SPDX, SARIF, audit report | `tools/generate-security-evidence.py` |
-| CI failure-mode evidence | `evidence/ci/failure-modes.jsonl` and `docs/CI-TROUBLESHOOTING.md` | signature/diagnosis/next-step validation |
+| Repository safety | source/config/scripts | `make validate` |
+| Project documentation | required docs and local links | `make docs` |
+| Analyzer corpus | `evidence/corpus/analyzer/golden.jsonl` | `make evidence` |
+| RAG/evaluator | `evidence/corpus/rag/ranking.jsonl` | `make evidence` |
+| PR salvage | `evidence/corpus/pr-salvage/cases.jsonl` | `make evidence` |
+| Discussion triage | `evidence/corpus/discussions/triage.jsonl` | `make evidence` |
+| Harness compatibility | `evidence/harness/compatibility.json` + adapter docs | `make evidence` |
+| Security repository evidence | generated SPDX/SARIF/audit | `make security-evidence` |
+| Vendored RouterOS skills | skill structure/relative links/secret checks | `routeros-skills.yml` |
+| CORE active routing | live route/WireGuard state | `make core-check`, `make core-find-conflict` |
+| Router runtime | live read-only status/verify | `make status`, `make audit`, `make verify` |
+| End-to-end reachability | live smoke checks | `make e2e` |
 
-## Commands
+## Interpretation
 
-```bash
-make evidence
-make security-evidence
-```
+Committed fixtures are regression contracts. Generated security evidence describes checks run against the repository. Neither proves that the live network is healthy.
 
-`make evidence` validates committed deterministic fixtures. `make security-evidence` generates ephemeral security artifacts under `artifacts/security/` and fails if high-confidence secret patterns are found in tracked source files.
+Production acceptance additionally requires external/live evidence such as management reachability, route persistence, SSH key login, DNS, WireGuard handshake, firewall/NAT behavior, backup/restore readiness, and intended DEV/PROD connectivity.
 
-## Evidence policy
+## Evidence hygiene
 
-- Fixtures must be synthetic or sanitized.
-- Never commit real credentials, private keys, runner tokens, production exports, or sensitive incident payloads.
-- A passing fixture set is regression evidence, not proof of production behavior outside the tested cases.
-- Security artifacts are repository-generated evidence, not a formal compliance or penetration-test attestation.
-- When behavior changes, change the fixture and expected result in the same pull request so review can see the contract change.
+- use synthetic or sanitized fixtures;
+- never commit credentials, private keys, runner tokens, sensitive exports, or raw incident payloads;
+- change fixtures and expected outcomes together when behavior changes;
+- do not weaken validators merely to make CI green;
+- retain enough context that a reviewer can distinguish test evidence from operator-observed runtime evidence.

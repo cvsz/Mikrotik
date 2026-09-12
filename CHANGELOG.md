@@ -1,21 +1,36 @@
 # Changelog
 
+Notable repository and operational changes are recorded here. zOS has not yet declared a stable public API; version numbers below describe repository milestones.
+
+## Unreleased
+
+### Documentation and GitHub operations
+- Rebuilt the project documentation map and added architecture, installation, testing, release, network-recovery, SSH-hardening, GitHub-operations, roadmap, support, governance, maintainer, and licensing guidance.
+- Added GitHub community templates and CODEOWNERS guidance.
+- Added documentation validation to prevent stale repository names and broken local Markdown references.
+- Clarified the difference between desired automation identity and the actual operator/recovery account on an existing CORE host.
+- Removed transient DEV DHCP addressing from the canonical example contract.
+
+### CORE recovery/hardening
+- Added fail-closed OpenSSH bootstrap/recovery for CORE.
+- Defaulted SSH password authentication to disabled and added authorized-key lockout prevention.
+- Added secure HashiCorp APT signing-key recovery with a reviewed pinned fingerprint.
+- Fixed temporary-file cleanup under `set -u`.
+- Restored executable Git modes for operational shell entry points.
+- Corrected persistent WireGuard conflict reporting so active `.conf` files are evaluated separately from retained backups.
+
 ## v2.1 - Real ZeaZDev environment naming
-- Canonical DEV host is now `core.zeaz.dev`.
-- Canonical PROD host is now `prod.zeaz.dev`.
-- SSH user for both environments is `zeazdev`.
-- Removed DBC naming from current documentation and agent guardrails.
-- Added explicit environment inventory.
-- Preserved PoliceDBC RouterOS 7.24.2 production baseline and safe-change workflow.
+- Canonical DEV host: `core.zeaz.dev`.
+- Canonical PROD host: `prod.zeaz.dev`.
+- Desired automation SSH identity: `zeazdev`.
+- Removed legacy DBC naming from current automation guidance.
+- Preserved the PoliceDBC RouterOS production baseline and safe-change workflow.
 
 ## v2.0 - PoliceDBC production-safe refactor
-- Replaced clean-slate assumptions with current PoliceDBC topology.
-- Added hard prechecks for WAN, LAN, default route and WireGuard.
-- Added Safe Mode / dry-run / backup deployment workflow.
-- Removed production dependency on PPPoE and 192.168.10.0/24.
-- Preserved existing WireGuard keys and management access.
-- Treated dual CORE DHCP client-id state as an operator-reconciliation item.
-- Historical destructive one-click configuration deprecated for PoliceDBC.
+- Replaced clean-slate assumptions with the verified PoliceDBC topology.
+- Added hard prechecks for WAN, LAN, default route, and WireGuard.
+- Added backup, dry-run, Safe Mode, and explicit live-change gates.
+- Deprecated the old PPPoE/192.168.10.0 production assumptions.
 
-## v1.0 FINAL
-- Initial clean-slate PPPoE design.
+## v1.0
+- Initial clean-slate PPPoE-oriented design.

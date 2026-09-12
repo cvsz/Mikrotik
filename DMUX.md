@@ -1,18 +1,15 @@
 # dmux Instructions for zOS
 
-Use `AGENTS.md` as the canonical operating contract for every pane, agent, or delegated task.
+Every pane/agent must follow `AGENTS.md`.
 
-## dmux adapter rules
+Use isolated branches/worktrees for concurrent tasks, avoid parallel edits to the same file without coordination, and never resolve conflicts by weakening CI, secret scanning, or production gates.
 
-- Keep concurrent agents on isolated branches/worktrees and avoid editing the same file from multiple panes without coordination.
-- Require each delegated task to preserve zOS production safety gates and documentation synchronization.
-- Do not allow parallel agents to bypass CI, secret scanning, or review requirements to resolve conflicts faster.
-- Merge evidence-bearing changes only after `make validate` and `make evidence` pass.
-- Prefer deterministic corpus updates when changing analyzer, evaluator, PR salvage, discussion triage, or CI-diagnosis behavior.
+Before integration:
 
-## Compatibility checks
-
-```bash
+~~~bash
 make validate
+make docs
 make evidence
-```
+~~~
+
+`docs/INDEX.md` defines shared documentation ownership; `docs/GITHUB-OPERATIONS.md` defines PR/merge expectations.
