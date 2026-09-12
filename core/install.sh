@@ -12,16 +12,17 @@ WG_IFACE="${WG_IFACE:-policedbc}"
 LAN_CIDR="${LAN_CIDR:-192.168.1.0/24}"
 GW="${GW:-192.168.1.1}"
 SSH_PORT="${SSH_PORT:-22}"
-SSH_ALLOW_PASSWORD="${SSH_ALLOW_PASSWORD:-yes}"
+SSH_ALLOW_PASSWORD="${SSH_ALLOW_PASSWORD:-no}"
 SSH_USER="${SSH_USER:-${SUDO_USER:-${USER:-zeazdev}}}"
 SSH_DROPIN="/etc/ssh/sshd_config.d/99-zeaz-core.conf"
+readonly HASHICORP_APT_FINGERPRINT="D55C0D1AC78A8D8126CB631CFC9CA96ACA026560"
 
 log() { printf '\n==> %s\n' "$*"; }
 warn() { printf '\nWARNING: %s\n' "$*" >&2; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
 repair_hashicorp_apt_key() {
-  local url key_ascii keyring_tmp keyring source_file codename arch
+  local url key_ascii keyring_tmp keyring source_file codename arch actual_fingerprint
   url="https://apt.releases.hashicorp.com/gpg"
   keyring="/usr/share/keyrings/hashicorp-archive-keyring.gpg"
   key_ascii="$(mktemp)"
@@ -50,6 +51,17 @@ repair_hashicorp_apt_key() {
     return 1
   }
 
+  actual_fingerprint="$(
+    gpg --batch --no-default-keyring --keyring "$keyring_tmp" --with-colons --fingerprint 2>/dev/null |
+      awk -F: '$1 == "fpr" {print toupper($10); exit}'
+  )"
+  if [[ "$actual_fingerprint" != "$HASHICORP_APT_FINGERPRINT" ]]; then
+    warn "HashiCorp APT signing-key fingerprint mismatch."
+    warn "Expected: $HASHICORP_APT_FINGERPRINT"
+    warn "Received: ${actual_fingerprint:-none}"
+    return 1
+  fi
+
   install -d -m 0755 /usr/share/keyrings
   install -m 0644 "$keyring_tmp" "$keyring"
 
@@ -74,7 +86,7 @@ repair_hashicorp_apt_key() {
     chmod 0644 "$source_file"
   fi
 
-  echo "HashiCorp APT key refreshed: $keyring"
+  echo "HashiCorp APT key refreshed and fingerprint verified: $keyring"
 }
 
 apt_update_safe() {
@@ -174,15 +186,26 @@ apt_update_safe
 DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server iproute2
 install -d -m 0755 /etc/ssh/sshd_config.d
 
-if [[ -f "$SSH_DROPIN" ]]; then
-  cp -a "$SSH_DROPIN" "${SSH_DROPIN}.bak.$(date +%Y%m%d-%H%M%S)"
-fi
-
 case "${SSH_ALLOW_PASSWORD,,}" in
   yes|true|1) password_auth=yes ;;
   no|false|0) password_auth=no ;;
   *) die "SSH_ALLOW_PASSWORD must be yes/no, true/false, or 1/0." ;;
 esac
+
+id -u "$SSH_USER" >/dev/null 2>&1 || die "SSH user '$SSH_USER' does not exist. Set SSH_USER to an existing account."
+target_home="$(getent passwd "$SSH_USER" | awk -F: 'NR==1 {print $6}')"
+[[ -n "$target_home" && -d "$target_home" ]] || die "Cannot determine a valid home directory for SSH user '$SSH_USER'."
+
+if [[ "$password_auth" == "no" ]]; then
+  authorized_keys="$target_home/.ssh/authorized_keys"
+  [[ -s "$authorized_keys" ]] || {
+    die "Password authentication is disabled by default, but $SSH_USER has no non-empty authorized_keys file at $authorized_keys. Install an SSH public key first, or explicitly rerun with SSH_ALLOW_PASSWORD=yes for emergency bootstrap access."
+  }
+fi
+
+if [[ -f "$SSH_DROPIN" ]]; then
+  cp -a "$SSH_DROPIN" "${SSH_DROPIN}.bak.$(date +%Y%m%d-%H%M%S)"
+fi
 
 cat >"$SSH_DROPIN" <<EOF_SSH
 # Managed by cvsz/zos core/install.sh
@@ -252,7 +275,7 @@ printf '  Test-NetConnection %s -Port %s\n' "${primary_addr%%/*}" "$SSH_PORT"
 printf '%s\n' '=============================================================='
 
 if [[ "$password_auth" == "yes" ]]; then
-  warn "PasswordAuthentication is enabled for bootstrap access. After key login is proven, rerun with SSH_ALLOW_PASSWORD=no to harden SSH."
+  warn "PasswordAuthentication was explicitly enabled for bootstrap access. After key login is proven, rerun with SSH_ALLOW_PASSWORD=no."
 fi
 
 cat <<'EOF_NOTE'
