@@ -95,7 +95,14 @@ Before merge-ready changes:
 
 ```bash
 make validate
+make evidence
 ./zOS/bin/zos help
+```
+
+If security evidence generation is affected, also run:
+
+```bash
+make security-evidence
 ```
 
 Operational commands:
@@ -125,6 +132,16 @@ OMEGA_AUTO_ROUTEROS_UPDATE=0
 OMEGA_ALLOW_ROUTER_REBOOT=0
 ```
 
+## Evidence contract
+
+Behavior that affects analyzer findings, retrieval ranking, PR salvage, discussion triage, harness compatibility, security evidence, or CI diagnosis must carry deterministic evidence under `evidence/` in the same pull request.
+
+- Keep fixtures synthetic or sanitized.
+- Never place real production secrets, private logs, credentials, or exports in the corpus.
+- Keep expected outcomes explicit and reviewable.
+- Do not weaken evidence validation merely to make CI pass.
+- Generated security evidence is test evidence, not a claim of certification or penetration-test coverage.
+
 ## Documentation contract
 
 Keep these synchronized when behavior changes:
@@ -132,7 +149,11 @@ Keep these synchronized when behavior changes:
 - `README.md`
 - `AGENTS.md`
 - `CLAUDE.md`
+- `CODEX.md`
 - `GEMINI.md`
+- `OPENCODE.md`
+- `ZED.md`
+- `DMUX.md`
 - `ENVIRONMENTS.md`
 - `CHECKLIST.md`
 - `SECURITY.md`
@@ -141,6 +162,8 @@ Keep these synchronized when behavior changes:
 - `docs/DISASTER-RECOVERY.md`
 - `docs/SELF_HOSTED_RUNNER.md`
 - `docs/zOS.md`
+- `docs/EVIDENCE-MATRIX.md`
+- `docs/CI-TROUBLESHOOTING.md`
 - `skills/README.md`
 
-`AGENTS.md` is canonical. `CLAUDE.md` and `GEMINI.md` point back to this contract and add tool-specific notes.
+`AGENTS.md` is canonical. Harness-specific adapter files point back to this contract and add surface-specific notes.
