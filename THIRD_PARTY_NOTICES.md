@@ -1,0 +1,39 @@
+# Third-Party Notices
+
+## tikoci/routeros-skills
+
+zOS vendors RouterOS skill documentation from:
+
+- Project: `tikoci/routeros-skills`
+- Source: https://github.com/tikoci/routeros-skills
+- Upstream branch used for import: `main`
+- Copyright: Copyright (c) 2026 tikoci
+- License: MIT License
+
+The imported material is stored under `skills/routeros-*/`.
+
+### MIT License
+
+Copyright (c) 2026 tikoci
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## MikroTik / RouterOS
+
+MikroTik and RouterOS are trademarks/products of MikroTik. This repository is an independent automation/control-plane project and is not presented as an official MikroTik product.

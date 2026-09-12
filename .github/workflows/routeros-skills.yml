@@ -1,0 +1,137 @@
+name: zOS RouterOS Skills Validation
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - '.github/workflows/routeros-skills.yml'
+      - 'docs/SELF_HOSTED_RUNNER.md'
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - '.github/workflows/routeros-skills.yml'
+      - 'docs/SELF_HOSTED_RUNNER.md'
+  workflow_dispatch:
+    inputs:
+      run_self_hosted:
+        description: 'Also probe the repository self-hosted Windows runner'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routeros-skills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-skills:
+    name: RouterOS skills validation
+    runs-on: windows-2025
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Verify imported RouterOS skills
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = @(
+            'routeros-app-yaml',
+            'routeros-capsman',
+            'routeros-command-tree',
+            'routeros-container',
+            'routeros-firewall',
+            'routeros-fundamentals',
+            'routeros-hotspot',
+            'routeros-mac-telnet',
+            'routeros-mndp',
+            'routeros-netinstall',
+            'routeros-qemu-chr',
+            'routeros-quickchr',
+            'routeros-scripting',
+            'routeros-sniffer',
+            'routeros-syntax-inspection'
+          )
+          foreach ($skill in $required) {
+            $path = Join-Path (Join-Path 'skills' $skill) 'SKILL.md'
+            if (-not (Test-Path $path -PathType Leaf)) {
+              throw "Missing imported skill: $path"
+            }
+            $content = Get-Content $path -Raw
+            if ($content -notmatch '(?s)^---\s+.*?\s+---') {
+              throw "Missing YAML front matter: $path"
+            }
+            if ($content -notmatch "(?m)^name:\s+$([regex]::Escape($skill))\s*$") {
+              throw "Skill name mismatch: $path"
+            }
+          }
+          Write-Host "All $($required.Count) RouterOS skills are present and structurally valid."
+
+      - name: Verify relative Markdown references
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $broken = @()
+          Get-ChildItem skills -Recurse -File -Filter '*.md' | ForEach-Object {
+            $file = $_
+            $content = Get-Content $file.FullName -Raw
+            $matches = [regex]::Matches(
+              $content,
+              '\[[^\]]+\]\((?!https?://|mailto:|#)([^)]+\.md)(?:#[^)]*)?\)'
+            )
+            foreach ($match in $matches) {
+              $target = $match.Groups[1].Value
+              $resolved = [System.IO.Path]::GetFullPath((Join-Path $file.DirectoryName $target))
+              if (-not (Test-Path $resolved -PathType Leaf)) {
+                $broken += "$($file.FullName): $target"
+              }
+            }
+          }
+          if ($broken.Count -gt 0) {
+            $broken | ForEach-Object { Write-Error "Broken relative Markdown reference: $_" }
+            throw "Found $($broken.Count) broken relative Markdown reference(s)."
+          }
+          Write-Host 'All relative Markdown references resolve to tracked files.'
+
+      - name: Reject accidental secrets in imported skills
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $privateKey = '-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----'
+          $literalSecret = '(?i)(password|token|private[-_ ]?key)\s*[:=]\s*["''][^"'']{12,}["'']'
+          Get-ChildItem skills -Recurse -File | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            if ($content -match $privateKey -or $content -match $literalSecret) {
+              throw "Potential committed secret in $($_.FullName)"
+            }
+          }
+
+      - name: Summary
+        run: |
+          "## zOS RouterOS Skills" >> $env:GITHUB_STEP_SUMMARY
+          "- Platform: **$env:RUNNER_OS / $env:RUNNER_ARCH**" >> $env:GITHUB_STEP_SUMMARY
+          "- Imported skills: **15**" >> $env:GITHUB_STEP_SUMMARY
+          "- Relative Markdown references: **verified**" >> $env:GITHUB_STEP_SUMMARY
+          "- Result: **PASS**" >> $env:GITHUB_STEP_SUMMARY
+
+  self-hosted-probe:
+    name: zOS-Runner health probe
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_self_hosted }}
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Minimal runner probe
+        run: |
+          Write-Host "Runner: $env:RUNNER_NAME"
+          Write-Host "OS: $env:RUNNER_OS"
+          Write-Host "Arch: $env:RUNNER_ARCH"
+          $PSVersionTable.PSVersion.ToString()
