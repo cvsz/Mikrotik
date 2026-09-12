@@ -5,12 +5,20 @@ on:
     paths:
       - 'skills/**'
       - '.github/workflows/routeros-skills.yml'
+      - 'docs/SELF_HOSTED_RUNNER.md'
   push:
     branches: [main]
     paths:
       - 'skills/**'
       - '.github/workflows/routeros-skills.yml'
+      - 'docs/SELF_HOSTED_RUNNER.md'
   workflow_dispatch:
+    inputs:
+      run_self_hosted:
+        description: 'Also probe the repository self-hosted Windows runner'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -20,11 +28,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  routeros-skills:
-    name: RouterOS skills on zOS-Runner
-    # GitHub routes self-hosted jobs by labels, not by runner display name.
-    # zOS-Runner currently exposes: self-hosted, Windows, X64.
-    runs-on: [self-hosted, Windows, X64]
+  validate-skills:
+    name: RouterOS skills validation
+    runs-on: windows-2025
     timeout-minutes: 10
     defaults:
       run:
@@ -33,15 +39,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-
-      - name: Runner diagnostics
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Write-Host "Runner: $env:RUNNER_NAME"
-          Write-Host "OS: $env:RUNNER_OS"
-          Write-Host "Arch: $env:RUNNER_ARCH"
-          git --version
-          $PSVersionTable.PSVersion
 
       - name: Verify imported RouterOS skills
         run: |
@@ -80,24 +77,34 @@ jobs:
       - name: Reject accidental secrets in imported skills
         run: |
           $ErrorActionPreference = 'Stop'
-          $patterns = @(
-            '-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----',
-            '(?i)(password|token|private[-_ ]?key)\s*[:=]\s*["''][^"'']{12,}["'']'
-          )
-          $files = Get-ChildItem skills -Recurse -File
-          foreach ($file in $files) {
-            $content = Get-Content $file.FullName -Raw
-            foreach ($pattern in $patterns) {
-              if ($content -match $pattern) {
-                throw "Potential committed secret in $($file.FullName)"
-              }
+          $privateKey = '-----BEGIN (RSA|OPENSSH|EC) PRIVATE KEY-----'
+          $literalSecret = '(?i)(password|token|private[-_ ]?key)\s*[:=]\s*["''][^"'']{12,}["'']'
+          Get-ChildItem skills -Recurse -File | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            if ($content -match $privateKey -or $content -match $literalSecret) {
+              throw "Potential committed secret in $($_.FullName)"
             }
           }
 
       - name: Summary
         run: |
           "## zOS RouterOS Skills" >> $env:GITHUB_STEP_SUMMARY
-          "- Runner: **$env:RUNNER_NAME**" >> $env:GITHUB_STEP_SUMMARY
           "- Platform: **$env:RUNNER_OS / $env:RUNNER_ARCH**" >> $env:GITHUB_STEP_SUMMARY
           "- Imported skills: **14**" >> $env:GITHUB_STEP_SUMMARY
           "- Result: **PASS**" >> $env:GITHUB_STEP_SUMMARY
+
+  self-hosted-probe:
+    name: zOS-Runner health probe
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_self_hosted }}
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Minimal runner probe
+        run: |
+          Write-Host "Runner: $env:RUNNER_NAME"
+          Write-Host "OS: $env:RUNNER_OS"
+          Write-Host "Arch: $env:RUNNER_ARCH"
+          $PSVersionTable.PSVersion.ToString()
