@@ -1,0 +1,62 @@
+name: zOS RouterOS Skills Validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  routeros-skills:
+    name: routeros-skills
+    runs-on: [self-hosted, Windows, X64, zOS-Runner]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify imported RouterOS skills
+        run: |
+          $ErrorActionPreference = "Stop"
+          $required = @(
+            "routeros-app-yaml",
+            "routeros-command-tree",
+            "routeros-container",
+            "routeros-firewall",
+            "routeros-fundamentals",
+            "routeros-hotspot",
+            "routeros-mac-telnet",
+            "routeros-mndp",
+            "routeros-netinstall",
+            "routeros-qemu-chr",
+            "routeros-quickchr",
+            "routeros-scripting",
+            "routeros-sniffer",
+            "routeros-syntax-inspection"
+          )
+          foreach ($skill in $required) {
+            $path = Join-Path "skills" $skill | Join-Path -ChildPath "SKILL.md"
+            if (-not (Test-Path $path)) {
+              throw "Missing imported skill: $path"
+            }
+            $content = Get-Content $path -Raw
+            if ($content -notmatch "^---") {
+              throw "Missing YAML front matter: $path"
+            }
+            if ($content -notmatch "name: $([regex]::Escape($skill))") {
+              throw "Skill name mismatch: $path"
+            }
+          }
+          Write-Host "All RouterOS skills present and structurally valid."
+
+      - name: Validate repository
+        run: |
+          bash ./tools/validate-repo.sh
+
+      - name: zOS CLI smoke test
+        run: |
+          bash ./zOS/bin/zos help
