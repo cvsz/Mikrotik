@@ -30,6 +30,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `docs/PRODUCTION-READINESS.md` | repository vs runtime acceptance |
 | `docs/PRODUCTION-MIGRATION.md` | legacy-to-current topology guidance |
 | `docs/SELF_HOSTED_RUNNER.md` | Windows runner lifecycle and security |
+| `runner/README.md` | Windows runner VM local environment reference |
 | `docs/zOS.md` | CLI/control-plane operations |
 
 ## GitHub, test, release, and lifecycle
@@ -53,6 +54,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `config/topology.env.example` | canonical topology/runtime template |
 | `core/.env.example` | CORE bootstrap/recovery options |
 | `zOS/.env.example` | zOS runtime/update-policy options |
+| `runner/.env.example` | Windows `zeaz` / `zOS-Runner` identity and trust posture |
 
 Templates must remain secret-free and fail-closed. Real `.env` files are local-only.
 

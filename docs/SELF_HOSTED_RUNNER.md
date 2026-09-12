@@ -4,6 +4,7 @@
 
 ## Identity
 
+- VM hostname: `zeaz`;
 - repository: `cvsz/zos`;
 - display name: `zOS-Runner`;
 - root path: `D:\zOS-Runner`;
@@ -11,6 +12,12 @@
 - launcher: Scheduled Task `zOS-GitHub-Runner`.
 
 GitHub schedules by labels. Do not assume the display name is a label.
+
+## Environment template
+
+The runner VM has a secret-free reference template at `runner/.env.example`. It records the hostname, runner identity, root path, scheduled task, labels, shell, and fail-closed trust posture.
+
+The runner does not auto-load this file. Do not store registration tokens, GitHub PATs, runner credentials, private keys, or production secrets in it. See `runner/README.md` for an explicit PowerShell import example.
 
 ## Single-listener rule
 
