@@ -22,11 +22,24 @@ jobs:
         run: ./tools/validate-repo.sh
       - name: zOS CLI smoke test
         run: ./zOS/bin/zos help
-      - name: Block secrets and private keys
+      - name: Block committed private keys and literal secrets
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude='*.md' --exclude='*.example' '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|private-key[=:][[:space:]]*[^$<]|password[=:][[:space:]]*[^$<{])' .; then
-            echo 'Potential embedded secret/private key found.' >&2
+          if grep -RInE \
+            --exclude-dir=.git \
+            --exclude='*.md' \
+            --exclude='*.example' \
+            --exclude='validate-repo.sh' \
+            --exclude='*.yml' \
+            --exclude='*.yaml' \
+            '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|private key|-----BEGIN PGP PRIVATE KEY BLOCK-----)' .; then
+            echo 'Potential embedded private key or literal secret found.' >&2
+            exit 1
+          fi
+
+          if grep -RInE --include='*.ya?ml' --exclude-dir=.git \
+            "(password|token):[[:space:]]*[\"']?[A-Za-z0-9_./+=-]{20,}[\"']?[[:space:]]*$" .github; then
+            echo 'Potential literal CI secret found. GitHub expressions such as ${{ secrets.GITHUB_TOKEN }} are allowed.' >&2
             exit 1
           fi
