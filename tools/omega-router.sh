@@ -26,6 +26,8 @@ Commands:
 EOF
 }
 
+# RouterOS commands are intentionally passed to the remote shell.
+# shellcheck disable=SC2029
 ssh_mt() { ssh "${SSH_OPTS[@]}" "$TARGET" "$@"; }
 
 status() {

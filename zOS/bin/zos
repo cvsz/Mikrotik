@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROUTER="$ROOT/tools/omega-router.sh"
+DEPLOY="$ROOT/tools/deploy-phases.sh"
+UPDATE="$ROOT/tools/routeros-auto-update.sh"
+CORE="$ROOT/tools/core-network-repair.sh"
+E2E="$ROOT/tools/e2e-check.sh"
+VALIDATE="$ROOT/tools/validate-repo.sh"
+
+usage() {
+  cat <<'EOF'
+zOS for MikroTik
+
+Usage: zOS/bin/zos <command>
+
+Read-only:
+  doctor          Validate repository + CORE routing status
+  status          Router status
+  audit           Router full audit
+  verify          Router health verification
+  e2e             DEV -> router -> PROD smoke test
+  update-check    Check RouterOS update status
+  update-notify   Check and send update state to configured server
+
+Change preparation:
+  backup          Router export + binary backup
+  plan            Dry-run all active RouterOS phases
+
+Explicit change actions:
+  apply           Apply active phases (requires OMEGA_ALLOW_LIVE_APPLY=1 and Safe Mode)
+  update-auto     Check and optionally install RouterOS update. Requires both update/reboot gates.
+
+CORE recovery:
+  core-status
+  core-check
+  core-repair
+  core-find-conflict
+EOF
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  doctor)
+    "$VALIDATE"
+    "$CORE" status || true
+    "$CORE" check || true
+    ;;
+  status) "$ROUTER" status ;;
+  audit) "$ROUTER" audit ;;
+  backup) "$ROUTER" backup ;;
+  plan) "$DEPLOY" dry-run ;;
+  apply) "$DEPLOY" apply ;;
+  verify) "$DEPLOY" verify ;;
+  e2e) "$E2E" ;;
+  update-check) "$UPDATE" check ;;
+  update-notify) "$UPDATE" notify ;;
+  update-auto) "$UPDATE" check-and-update ;;
+  core-status) "$CORE" status ;;
+  core-check) "$CORE" check ;;
+  core-repair) "$CORE" repair-runtime ;;
+  core-find-conflict) "$CORE" find-conflict ;;
+  help|-h|--help|'') usage ;;
+  *) echo "Unknown zOS command: $cmd" >&2; usage; exit 2 ;;
+esac

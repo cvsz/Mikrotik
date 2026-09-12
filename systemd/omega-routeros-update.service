@@ -1,0 +1,18 @@
+[Unit]
+Description=OMEGA RouterOS update check and guarded auto-update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/zeaz-mikrotik
+Environment=OMEGA_ENV_FILE=/etc/zeaz-mikrotik/topology.env
+ExecStart=/opt/zeaz-mikrotik/tools/routeros-auto-update.sh check-and-update
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/zeaz-mikrotik/state /opt/zeaz-mikrotik/backups

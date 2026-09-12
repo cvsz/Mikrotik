@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict
+.PHONY: validate status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
 
 validate:
 	./tools/validate-repo.sh
@@ -38,3 +38,25 @@ core-repair:
 
 core-find-conflict:
 	./tools/core-network-repair.sh find-conflict
+
+zos:
+	./zOS/bin/zos help
+
+zos-doctor:
+	./zOS/bin/zos doctor
+
+zos-install:
+	./zOS/install.sh
+
+update-check:
+	./tools/routeros-auto-update.sh check
+
+update-notify:
+	./tools/routeros-auto-update.sh notify
+
+update-auto:
+	@echo "Automatic RouterOS install requires OMEGA_AUTO_ROUTEROS_UPDATE=1 and OMEGA_ALLOW_ROUTER_REBOOT=1"
+	./tools/routeros-auto-update.sh check-and-update
+
+update-monitor-install:
+	./tools/install-update-monitor.sh

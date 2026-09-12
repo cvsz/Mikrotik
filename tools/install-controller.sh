@@ -29,7 +29,10 @@ if [[ ! -f "$ROOT/config/topology.env" ]]; then
 fi
 
 if ! grep -q 'HOME/.local/bin' "$HOME/.profile" 2>/dev/null; then
-  printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.profile"
+  cat >> "$HOME/.profile" <<'EOF'
+
+export PATH="$HOME/.local/bin:$PATH"
+EOF
 fi
 
 cat <<EOF
