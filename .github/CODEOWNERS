@@ -1,0 +1,10 @@
+* @cvsz
+
+# Production-sensitive surfaces remain explicitly owned until more maintainers are added.
+/.github/ @cvsz
+/core/ @cvsz
+/tools/ @cvsz
+/zOS/ @cvsz
+/docs/ @cvsz
+/skills/ @cvsz
+/*.rsc @cvsz

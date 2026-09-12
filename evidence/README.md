@@ -1,22 +1,26 @@
 # zOS Evidence Corpus
 
-This directory contains deterministic fixtures and generated-evidence contracts used to detect regressions across analyzer, retrieval/evaluation, PR salvage, discussion triage, harness adapters, security auditing, and CI troubleshooting.
+`evidence/` contains deterministic, sanitized repository fixtures. It is not a storage location for raw production logs or credentials.
 
 ## Layout
 
-- `corpus/analyzer/golden.jsonl` — analyzer regression cases and expected findings.
-- `corpus/rag/ranking.jsonl` — retrieval/evaluator ranking expectations.
-- `corpus/pr-salvage/cases.jsonl` — stale/duplicate/reopen/review-thread cleanup cases.
-- `corpus/discussions/triage.jsonl` — public discussion triage cases.
-- `harness/compatibility.json` — cross-harness policy and adapter expectations.
-- `ci/failure-modes.jsonl` — synthetic CI failure signatures and expected diagnoses.
-- `security/README.md` — security evidence model and generated artifact contract.
+- `corpus/analyzer/golden.jsonl` — analyzer regression cases;
+- `corpus/rag/ranking.jsonl` — retrieval/ranking expectations;
+- `corpus/pr-salvage/cases.jsonl` — PR salvage/cleanup cases;
+- `corpus/discussions/triage.jsonl` — discussion triage cases;
+- `harness/compatibility.json` — agent-adapter compatibility expectations;
+- `ci/failure-modes.jsonl` — sanitized failure signatures and expected diagnosis;
+- `security/README.md` — generated security-evidence contract.
 
-Run:
+## Commands
 
-```bash
-python3 tools/validate-evidence.py
-python3 tools/generate-security-evidence.py --out artifacts/security
-```
+~~~bash
+make evidence
+make security-evidence
+~~~
 
-Fixtures are intentionally synthetic. They must never contain real credentials, private keys, runner tokens, production exports, or sensitive incident data.
+## Boundary
+
+Repository evidence proves only the checks and fixtures represented here. Live CORE/router acceptance requires the runtime evidence defined in `docs/PRODUCTION-READINESS.md` and `docs/EVIDENCE-MATRIX.md`.
+
+Fixtures must never contain real credentials, private keys, runner tokens, sensitive exports, binary backups, or raw private incident data.

@@ -1,0 +1,58 @@
+# Testing and Validation
+
+zOS separates source validation from live runtime verification.
+
+## Repository baseline
+
+~~~bash
+make validate
+make docs
+./zOS/bin/zos help
+~~~
+
+`make validate` checks required files, production-safety invariants, shell syntax/static analysis, and selected hardening expectations. `make docs` checks project-document presence, local Markdown references, and common documentation drift.
+
+## Evidence
+
+~~~bash
+make evidence
+make security-evidence
+~~~
+
+`make evidence` validates deterministic committed fixtures. `make security-evidence` generates repository-derived SPDX/SARIF/audit artifacts. Neither is a penetration test or live-production certification.
+
+## CORE runtime
+
+~~~bash
+make core-status
+make core-check
+make core-find-conflict
+~~~
+
+After network/SSH recovery, include an external SSH key-login test and a reboot persistence test.
+
+## Router read-only/runtime
+
+~~~bash
+make status
+make audit
+make verify
+make e2e
+~~~
+
+Use `make backup` and `make dry-run` before any approved live change.
+
+## CI matrix
+
+| Workflow | Primary purpose | Live mutation? |
+|---|---|---|
+| `validate.yml` | repository/static/docs/safety checks | no |
+| `evidence-validation.yml` | corpus and generated security evidence | no |
+| `routeros-skills.yml` | vendored RouterOS skill integrity | no |
+| `zos-build.yml` | tarball and OCI package build | no |
+
+The optional self-hosted runner probe remains validation-only.
+
+## Failure interpretation
+
+A green CI run means its configured checks passed for that commit. It does not prove router connectivity, CORE route persistence, DNS, VPN, firewall/NAT, or PROD reachability.

@@ -1,9 +1,13 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate evidence security-evidence status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
+.PHONY: validate docs evidence security-evidence status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
 
 validate:
 	./tools/validate-repo.sh
+	python3 tools/validate-docs.py
+
+docs:
+	python3 tools/validate-docs.py
 
 evidence:
 	python3 tools/validate-evidence.py

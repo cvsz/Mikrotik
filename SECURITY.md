@@ -1,34 +1,39 @@
 # Security Policy
 
-## Scope
+## Security model
 
-This repository controls production-sensitive MikroTik RouterOS infrastructure and zOS controller behavior. Treat scripts, topology, credentials, SSH keys, WireGuard keys, backups, exports, and GitHub runner credentials as sensitive operational material.
+zOS is privileged infrastructure automation. Its primary security objectives are to preserve management access, prevent accidental destructive RouterOS changes, keep credentials out of source control, fail closed when trust cannot be verified, and separate repository validation from live-production authority.
 
-## Mandatory rules
+## Supported repository state
 
-- Never commit private keys, passwords, tokens, runner credentials, RouterOS binary backups, production exports containing secrets, or local secret-bearing `.env` files.
-- Use `config/topology.env` locally; commit only `config/topology.env.example`.
-- Production RouterOS mutations require audit, backup, dry-run, a recovery path, explicit operator opt-in, and post-change verification.
-- Use RouterOS Safe Mode for risky live changes where appropriate.
-- Automatic RouterOS upgrades remain disabled by default and require explicit update and reboot gates.
-- zOS runs on `core.zeaz.dev`; it does not replace RouterOS firmware.
-- Never weaken validation or secret scanning solely to make CI pass.
-- Do not run untrusted fork pull requests on the privileged self-hosted runner.
-- Do not treat an HTTP 200 from RouterOS `/rest/execute` as proof that a command succeeded.
+Security fixes target the current `main` branch unless a specific release branch is explicitly maintained. No long-term support matrix is currently declared.
 
-## Self-hosted runner
+## Mandatory controls
 
-The repository runner is `zOS-Runner` under `D:\zOS-Runner`, launched by Scheduled Task `zOS-GitHub-Runner`.
+- never commit passwords, tokens, SSH/WireGuard private keys, runner credentials, RouterOS binary backups, sensitive exports, or populated secret-bearing environment files;
+- production mutation requires audit, backup, dry-run, recovery access, explicit operator opt-in, and post-change verification;
+- CORE SSH defaults to public-key authentication with password authentication disabled;
+- root SSH login remains disabled;
+- APT signature verification may not be bypassed;
+- HashiCorp signing-key recovery must match the fingerprint pinned in reviewed source;
+- normal GitHub-hosted and self-hosted validation workflows must not silently become production apply channels;
+- untrusted fork pull requests must not execute on the privileged self-hosted runner;
+- validation/secret-scanning rules must not be weakened merely to make CI green.
 
-Security expectations:
+## Trust boundaries
 
-- keep Windows, Git, PowerShell, and the runner current;
-- restrict the runner to trusted repository workloads;
-- do not store long-lived production credentials in the checkout;
-- keep runner registration/credential files out of source control;
-- periodically clean stale workspaces;
-- keep normal production mutation out of CI.
+`core.zeaz.dev`, the RouterOS device, GitHub Actions, the self-hosted Windows runner, GHCR, and operator workstations are distinct trust surfaces. See `docs/ARCHITECTURE.md` and `docs/GITHUB-OPERATIONS.md`.
 
-## Reporting
+## SSH recovery safety
 
-For a suspected vulnerability, do not open a public issue containing secrets, credentials, topology dumps, or exploitable details. Use GitHub private vulnerability reporting when available or contact the repository owner privately.
+If public-key authentication is not proven, keep the existing recovery terminal/session open. Do not disable the last working authentication path. `core/install.sh` prevents the normal key-only path when the selected user lacks a non-empty `authorized_keys` file.
+
+## Reporting vulnerabilities
+
+Do not publish exploitable details, credentials, topology dumps, or secrets in a public issue. Prefer GitHub Private Vulnerability Reporting when enabled. Otherwise contact the repository owner privately through a trusted channel and provide only the minimum reproducible information.
+
+Include affected commit/version, impact, reproduction conditions, and whether credentials might have been exposed. If a secret was exposed, rotate/revoke it before discussing remediation publicly.
+
+## Operational incidents
+
+Availability incidents without a security defect belong in normal support/operations tracking. See `SUPPORT.md`. Security incidents involving possible credential exposure, unauthorized access, or bypass of safety gates should use the private reporting path.

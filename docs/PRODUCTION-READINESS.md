@@ -1,57 +1,59 @@
 # Production Readiness
 
-This document distinguishes repository readiness from live infrastructure readiness.
+Production readiness is an evidence state, not a label inferred from CI.
 
-## Repository readiness
+## Repository-ready
 
-A merge candidate is repository-ready when:
+A commit/PR is repository-ready when:
 
 - `make validate` passes;
-- `make evidence` passes;
-- `make security-evidence` succeeds;
-- GitHub Actions validation/build/evidence workflows are green;
-- production mutation paths remain fail-closed;
-- no secret, private key, runner credential, sensitive export, or RouterOS binary backup is committed;
-- operational and agent documentation is synchronized.
+- `make docs` passes;
+- relevant evidence/security checks pass;
+- required GitHub Actions checks are green;
+- live mutation paths remain fail-closed;
+- no sensitive material is committed;
+- documentation, rollback implications, and changelog are synchronized.
 
-## CORE readiness
+## CORE-ready
 
-`core.zeaz.dev` is runtime-ready when:
+CORE is runtime-ready when:
 
-- the physical interface has carrier and a valid IPv4 address;
-- the physical LAN and default gateway route through the physical interface, not `policedbc`;
-- `192.168.1.0/24` is absent from persistent `policedbc` WireGuard `AllowedIPs`;
-- OpenSSH configuration validates and the listener is active;
-- SSH public-key login is proven;
-- password authentication is disabled by default;
-- any explicit temporary password-authentication exception is removed after bootstrap;
-- APT signature verification remains enabled;
-- a repaired HashiCorp package signing key matches the fingerprint pinned in `core/install.sh`.
+- physical carrier and runtime IPv4 are valid;
+- default/physical LAN route through `ens33`;
+- `10.8.0.0/24` routes through `policedbc`;
+- active WireGuard config excludes `192.168.1.0/24` from `AllowedIPs`;
+- sshd validates and listens;
+- public-key login is independently proven;
+- password authentication is disabled for production;
+- root SSH login is disabled;
+- APT trust remains signature-verified;
+- any network/SSH recovery survives reboot.
 
-## Router readiness
+## Router change-ready
 
-PoliceDBC is change-ready only after:
+- current state audited;
+- recovery-capable management path proven;
+- export and backup captured;
+- intended phases dry-run cleanly;
+- Safe Mode/recovery available for risky changes;
+- explicit live-apply gate enabled only for the approved window.
 
-- current state is audited;
-- local/recovery-capable management access is proven;
-- text export and backup evidence exist;
-- intended phases pass dry-run;
-- Safe Mode/recovery procedure is available for risky live work;
-- `OMEGA_ALLOW_LIVE_APPLY=1` is set only for an approved change window;
-- post-change `make verify` and independent management checks pass.
+## Production accepted
 
-## Production acceptance
+After an approved live change, independently verify management, WAN/default route, LAN/DHCP/DNS, WireGuard, firewall/NAT, intended service behavior, and DEV/PROD reachability where applicable.
 
-Do not label the deployment fully production-ready based on CI alone. Final acceptance requires live evidence from CORE and the router, including routing, DNS, WireGuard, firewall/NAT, management access, and intended DEV/PROD reachability.
-
-A completed acceptance record should contain:
+Record:
 
 1. commit/release SHA;
 2. CI run identifiers;
 3. pre-change audit timestamp;
 4. backup/export identifiers;
 5. dry-run result;
-6. approved live-change window if mutation occurred;
+6. approved change window/operator;
 7. post-change verification result;
-8. rollback/recovery result if exercised;
-9. operator identity and timestamp.
+8. reboot/rollback/restore result when relevant;
+9. remaining known risks.
+
+## Explicit non-evidence
+
+The following are not sufficient on their own: HTTP 200 from a RouterOS execute endpoint, successful repository build, an SSH TCP port being reachable, a pre-reboot route table, or a backup file existing without a restore/rollback exercise.

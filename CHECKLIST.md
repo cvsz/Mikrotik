@@ -1,43 +1,53 @@
-# zOS / PoliceDBC Production Checklist
+# zOS Production Checklist
 
-## Identity
+Use this checklist for repository merges and live infrastructure changes. Repository readiness and runtime readiness are separate gates.
 
-- [ ] DEV is `core.zeaz.dev`.
-- [ ] PROD is `prod.zeaz.dev`.
-- [ ] SSH user is `zeazdev`.
-- [ ] No new automation uses the historical DBC hostname.
+## Repository/PR
 
-## Before change
+- [ ] Change is scoped, reviewable, and recovery-aware.
+- [ ] `make validate` passes.
+- [ ] `make docs` passes.
+- [ ] `make evidence` passes when evidence/agent behavior is affected.
+- [ ] `make security-evidence` passes when security evidence is affected.
+- [ ] Required GitHub Actions checks are green.
+- [ ] No secret, private key, runner credential, binary backup, or sensitive production export is committed.
+- [ ] Operational scripts that are executed directly retain executable Git mode.
+- [ ] Relevant documentation and `CHANGELOG.md` are updated.
+- [ ] PR template safety/recovery questions are answered.
 
-- [ ] Confirm local/recovery-capable management path.
-- [ ] Confirm SSH and/or WinBox access.
-- [ ] Run `00-PRECHECK.rsc` / `make audit`.
-- [ ] Export current configuration.
-- [ ] Create a backup.
-- [ ] Run `make validate`.
-- [ ] Dry-run every candidate RouterOS phase.
-- [ ] Review the exact change plan.
-- [ ] Enter RouterOS Safe Mode for risky production changes.
-- [ ] Enable explicit live-apply gate only when ready.
+## CORE
 
-## After change
+- [ ] `ens33` has carrier and a valid runtime IPv4 address.
+- [ ] Default gateway resolves through `ens33`.
+- [ ] `192.168.1.0/24` routes through `ens33`.
+- [ ] `10.8.0.0/24` routes through `policedbc`.
+- [ ] Active `/etc/wireguard/*.conf` does not place `192.168.1.0/24` in `AllowedIPs`.
+- [ ] `make core-check` passes.
+- [ ] `make core-find-conflict` passes.
+- [ ] OpenSSH configuration validates.
+- [ ] SSH public-key login is proven from another host.
+- [ ] `PasswordAuthentication no` is effective for production.
+- [ ] `PermitRootLogin no` is effective.
+- [ ] A reboot persistence test has been completed after network/SSH recovery.
 
-- [ ] LAN gateway remains `192.168.1.1/24` on `bridge-lan`.
-- [ ] WAN remains `192.168.205.251/21` on `ether1`.
-- [ ] Default route remains via `192.168.200.1` unless intentionally changed.
-- [ ] Internet connectivity passes.
-- [ ] DNS resolution passes.
-- [ ] SSH and WinBox remain reachable.
-- [ ] WireGuard keys were preserved unless rotation was explicitly approved.
-- [ ] DEV/CORE remains the known `10.8.0.2/32` peer.
-- [ ] DEV physical LAN route uses `ens33`, not `policedbc`.
-- [ ] Firewall/NAT behavior is verified.
-- [ ] `99-VERIFY-HEALTH.rsc` / `make verify` passes.
-- [ ] Post-change export/evidence is retained.
+## Router change
 
-## CI/runner
+- [ ] Recovery-capable local/MAC/console/management path is available.
+- [ ] `make status` and `make audit` reviewed.
+- [ ] Current export and backup captured.
+- [ ] Intended phases pass `make dry-run`.
+- [ ] Risky work uses Safe Mode or an equivalent verified rollback path.
+- [ ] `OMEGA_ALLOW_LIVE_APPLY=1` is set only for the approved window.
+- [ ] Management remains reachable during and after change.
+- [ ] WAN/default route, LAN/DHCP/DNS, WireGuard, firewall/NAT, and target behavior are independently verified.
+- [ ] `make verify` and `make e2e` pass when applicable.
+- [ ] Post-change evidence and rollback notes are retained.
 
-- [ ] Hosted validation workflows pass.
-- [ ] Self-hosted `zOS-Runner` is used only when explicitly intended.
-- [ ] Scheduled Task `zOS-GitHub-Runner` is the sole background listener.
-- [ ] No second manual `run.cmd` session is running.
+## GitHub
+
+- [ ] Main branch ruleset blocks force-push/delete and requires PR review/checks.
+- [ ] Workflow default permissions are read-only; package write is scoped to the build workflow.
+- [ ] Untrusted fork code does not run on the privileged self-hosted runner.
+- [ ] `zOS-Runner` has a single listener session.
+- [ ] Private vulnerability reporting / secret scanning / push protection are enabled where supported.
+- [ ] Release tag, changelog, artifacts, and GHCR image agree for a release.

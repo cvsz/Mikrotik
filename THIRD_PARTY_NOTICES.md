@@ -1,14 +1,17 @@
 # Third-Party Notices
 
+## Project license boundary
+
+The zOS repository does not currently declare a project-wide license. See `docs/LICENSING.md`. The third-party license below applies to the imported material identified here and does not automatically license unrelated original zOS code.
+
 ## tikoci/routeros-skills
 
 zOS vendors RouterOS skill documentation from:
 
 - Project: `tikoci/routeros-skills`
 - Source: https://github.com/tikoci/routeros-skills
-- Upstream branch used for import: `main`
 - Copyright: Copyright (c) 2026 tikoci
-- License: MIT License
+- License: MIT
 
 The imported material is stored under `skills/routeros-*/`.
 
@@ -36,4 +39,4 @@ SOFTWARE.
 
 ## MikroTik / RouterOS
 
-MikroTik and RouterOS are trademarks/products of MikroTik. This repository is an independent automation/control-plane project and is not presented as an official MikroTik product.
+MikroTik and RouterOS are trademarks/products of MikroTik. zOS is an independent automation/control-plane project and is not presented as an official MikroTik product.

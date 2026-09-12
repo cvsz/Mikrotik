@@ -14,12 +14,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Install validation tools
         run: sudo apt-get update && sudo apt-get install -y shellcheck rsync
-      - name: Make tools executable
-        run: chmod +x tools/*.sh zOS/bin/zos zOS/install.sh
       - name: Static safety validation
         run: ./tools/validate-repo.sh
+      - name: Documentation validation
+        run: python3 tools/validate-docs.py
       - name: zOS CLI smoke test
         run: ./zOS/bin/zos help
       - name: Block committed private keys and literal secrets

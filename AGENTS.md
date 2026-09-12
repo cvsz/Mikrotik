@@ -1,169 +1,98 @@
 # zOS Agent Operating Contract
 
-This file is the canonical operating contract for Codex and other automated agents working in `cvsz/zos`.
+`AGENTS.md` is the canonical policy for Codex and every other automated agent operating in `cvsz/zos`. Adapter files such as `CODEX.md`, `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ZED.md`, and `DMUX.md` may add tool-specific notes but may not weaken this contract.
 
-## Canonical environments
+## Precedence
 
-| Environment | FQDN | SSH user | Purpose |
-|---|---|---|---|
-| DEV | `core.zeaz.dev` | `zeazdev` | development, zOS controller, automation |
-| PROD | `prod.zeaz.dev` | `zeazdev` | production workloads |
+1. Protect management and recovery access.
+2. Preserve verified live state unless an approved change explicitly replaces it.
+3. Prefer read-only inspection, deterministic validation, backup, and dry-run before mutation.
+4. Keep repository evidence distinct from live production evidence.
+5. Never invent unknown topology, credentials, addresses, or successful runtime outcomes.
 
-Do not reintroduce the legacy DBC hostname into new automation.
+## Canonical environment
 
-## Router baseline
+| Surface | Contract | Notes |
+|---|---|---|
+| Repository | `cvsz/zos` | default branch `main` |
+| DEV/controller | `core.zeaz.dev` | automation target; existing operator account may differ |
+| PROD | `prod.zeaz.dev` | addresses not yet verified must remain unset |
+| Router | PoliceDBC RB4011iGS+ | RouterOS 7.24.2+ baseline |
+| CORE LAN | `ens33` / `192.168.1.0/24` | default gateway `192.168.1.1` |
+| CORE WG | `policedbc` / `10.8.0.2/32` | routed WG network `10.8.0.0/24` |
 
-- Device: MikroTik RB4011iGS+
-- RouterOS baseline: `7.24.2`
-- WAN: `ether1 = 192.168.205.251/21`
-- Upstream gateway: `192.168.200.1`
-- LAN: `bridge-lan = 192.168.1.1/24`
-- DHCP pool: `192.168.1.50-192.168.1.199`
-- WireGuard: `wg-remote = 10.8.0.1/24`, UDP `51820`
-- DEV/CORE peer: `10.8.0.2/32`
-
-## Mandatory change sequence
-
-For production-sensitive RouterOS changes:
-
-1. audit current state;
-2. verify recovery-capable management access;
-3. create/export backup evidence;
-4. run static validation;
-5. dry-run RouterOS imports where supported;
-6. use Safe Mode for risky live changes;
-7. require explicit operator opt-in;
-8. apply the minimum idempotent change;
-9. verify management, WAN, routing, DNS, WireGuard, firewall/NAT and target behavior;
-10. retain post-change evidence.
-
-Never treat HTTP 200 alone as proof that a RouterOS REST `/rest/execute` command succeeded.
-
-## Prohibited actions
-
-- Never factory-reset production.
-- Never bulk-delete firewall, NAT, IP, interface or routing state.
-- Never rotate WireGuard keys without explicit approval.
-- Never change WAN/default route without a verified recovery path.
-- Never disable both SSH and WinBox in the same change.
-- Never migrate `192.168.1.0/24` without a cutover plan.
-- Never place physical LAN `192.168.1.0/24` in CORE WireGuard `AllowedIPs`.
-- Never commit credentials, private keys, runner credentials, sensitive exports or RouterOS binary backups.
-- Never run live production RouterOS apply steps from normal CI.
-- Never invent unverified PROD addresses.
-
-## Active RouterOS phases
-
-```text
-00-PRECHECK.rsc
-10-BACKUP-SNAPSHOT.rsc
-20-NETWORK-NORMALIZE.rsc
-30-DHCP-DNS-NTP.rsc
-40-WIREGUARD-SERVICES.rsc
-50-FIREWALL-NAT.rsc
-60-OBSERVABILITY.rsc
-90-EXPORT-EVIDENCE.rsc
-99-VERIFY-HEALTH.rsc
-```
-
-Historical `01-...` through `07-...` scripts and old one-click/meta-master paths are deprecated.
+The desired automation SSH identity is `zeazdev`; do not assume it already exists on an existing host. Recovery/bootstrap scripts derive the actual target user from `SUDO_USER`/`USER` unless `SSH_USER` is explicitly set.
 
 ## CORE network invariant
 
-```text
+~~~text
 default via 192.168.1.1 dev ens33
 192.168.1.0/24 dev ens33
 10.8.0.0/24 dev policedbc
-```
+~~~
 
-If the physical LAN route is on `policedbc`, repair the route/AllowedIPs conflict before production automation.
+The physical LAN must not appear in active WireGuard `AllowedIPs`. Backup files may retain historical values for rollback; active-config checks must distinguish backups from live `.conf` files.
 
-## GitHub Actions runner
+## Mandatory production change sequence
 
-- Display name: `zOS-Runner`
-- Host path: `D:\zOS-Runner`
-- Labels: `self-hosted`, `Windows`, `X64`
-- Launch model: Scheduled Task `zOS-GitHub-Runner`
+1. inspect current repository and runtime state;
+2. prove a recovery-capable management path;
+3. audit and capture pre-change evidence;
+4. create/export backup evidence;
+5. run repository/documentation/evidence validation;
+6. dry-run intended RouterOS phases where supported;
+7. enter Safe Mode or use another verified rollback path for risky work;
+8. require explicit operator opt-in;
+9. apply the smallest idempotent change;
+10. independently verify management, WAN/default route, LAN/DHCP/DNS, WireGuard, firewall/NAT, and intended service behavior;
+11. retain post-change evidence and rollback notes.
 
-GitHub schedules by labels, not display name. Normal skills validation remains GitHub-hosted; the self-hosted runner is an explicit/manual probe until its worker runtime is proven healthy end-to-end.
+## Prohibited actions
 
-Do not manually start a second `run.cmd` while the Scheduled Task listener is already running.
+- no factory reset of production;
+- no bulk deletion of firewall/NAT/IP/interface/routing state;
+- no silent WireGuard key rotation;
+- no default-route/WAN change without recovery access;
+- no simultaneous loss of SSH and WinBox management;
+- no physical LAN CIDR in CORE WireGuard `AllowedIPs`;
+- no secrets, private keys, runner credentials, binary backups, or sensitive exports in Git;
+- no live RouterOS apply from ordinary CI;
+- no disabling APT/GitHub/security validation just to make a pipeline pass;
+- no invented PROD addresses or runtime-success claims;
+- no broad `safe.directory` workaround for root operating in a user-owned checkout.
 
-## Validation
+## SSH and package-security contract
 
-Before merge-ready changes:
+- `core/install.sh` defaults `SSH_ALLOW_PASSWORD=no`.
+- key-only mode requires a non-empty authorized-keys file before sshd is changed.
+- `PermitRootLogin no` remains required.
+- temporary password bootstrap must be explicit and removed after key login is proven.
+- HashiCorp APT recovery may use only the reviewed official endpoint and pinned fingerprint in source.
+- APT signature verification must never be bypassed.
 
-```bash
+## Repository completion checks
+
+~~~bash
 make validate
+make docs
 make evidence
-./zOS/bin/zos help
-```
-
-If security evidence generation is affected, also run:
-
-```bash
 make security-evidence
-```
+./zOS/bin/zos help
+~~~
 
-Operational commands:
+Runtime checks are additional, not substitutes:
 
-```bash
-make core-status
+~~~bash
 make core-check
+make core-find-conflict
 make status
 make audit
-make backup
-make dry-run
 make verify
 make e2e
-```
-
-Live apply remains gated:
-
-```bash
-export OMEGA_ALLOW_LIVE_APPLY=1
-make apply
-```
-
-Automatic RouterOS installation remains double-gated:
-
-```env
-OMEGA_AUTO_ROUTEROS_UPDATE=0
-OMEGA_ALLOW_ROUTER_REBOOT=0
-```
-
-## Evidence contract
-
-Behavior that affects analyzer findings, retrieval ranking, PR salvage, discussion triage, harness compatibility, security evidence, or CI diagnosis must carry deterministic evidence under `evidence/` in the same pull request.
-
-- Keep fixtures synthetic or sanitized.
-- Never place real production secrets, private logs, credentials, or exports in the corpus.
-- Keep expected outcomes explicit and reviewable.
-- Do not weaken evidence validation merely to make CI pass.
-- Generated security evidence is test evidence, not a claim of certification or penetration-test coverage.
+~~~
 
 ## Documentation contract
 
-Keep these synchronized when behavior changes:
+Project-owned Markdown must remain synchronized with behavior. `docs/INDEX.md` defines the documentation map and ownership model. Vendored skill documentation under `skills/routeros-*` is upstream-derived and should be changed only for deliberate sync/safety adaptation with provenance retained.
 
-- `README.md`
-- `AGENTS.md`
-- `CLAUDE.md`
-- `CODEX.md`
-- `GEMINI.md`
-- `OPENCODE.md`
-- `ZED.md`
-- `DMUX.md`
-- `ENVIRONMENTS.md`
-- `CHECKLIST.md`
-- `SECURITY.md`
-- `CONTRIBUTING.md`
-- `docs/RUNBOOK.md`
-- `docs/DISASTER-RECOVERY.md`
-- `docs/SELF_HOSTED_RUNNER.md`
-- `docs/zOS.md`
-- `docs/EVIDENCE-MATRIX.md`
-- `docs/CI-TROUBLESHOOTING.md`
-- `skills/README.md`
-
-`AGENTS.md` is canonical. Harness-specific adapter files point back to this contract and add surface-specific notes.
+Any behavior-changing PR must update its relevant documentation, tests/evidence, changelog entry, and recovery implications in the same change.
