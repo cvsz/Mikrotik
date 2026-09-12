@@ -62,6 +62,11 @@ done
 grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
 grep -Fq 'Do not delete ether2 DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
 grep -Fq 'Do not overwrite global DNS resolver state' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve unowned resolver state'
+grep -Fq 'unowned 192.168.1.1/24 on ether2 detected; refusing deletion' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed before deleting an unowned duplicate gateway'
+grep -Fq 'controller-managed encrypted backup required' 10-BACKUP-SNAPSHOT.rsc || err 'backup phase must defer binary backup creation to encrypted controller workflow'
+if grep -Eiq 'dont-encrypt=yes|system backup save' 10-BACKUP-SNAPSHOT.rsc; then
+  err 'backup phase must not create an unencrypted or unmanaged RouterOS binary backup'
+fi
 if grep -Eq 'core\.zeaz\.internal.*192\.168\.1\.128|192\.168\.1\.128.*core\.zeaz\.internal' 30-DHCP-DNS-NTP.rsc; then
   err 'DHCP/DNS phase hard-codes the unverified CORE LAN address'
 fi
@@ -95,6 +100,7 @@ grep -q '^OMEGA_REQUIRE_SAFE_MODE=1$' config/topology.env.example || err 'Safe M
 grep -q 'OMEGA_REQUIRE_DRY_RUN' tools/deploy-phases.sh || err 'deploy script does not enforce dry-run gate'
 grep -q 'OMEGA_REQUIRE_SAFE_MODE' tools/deploy-phases.sh || err 'deploy script does not enforce Safe Mode gate'
 grep -Fq '[Safe Mode taken]' tools/omega-router.sh || err 'RouterOS apply helper does not require Safe Mode confirmation'
+grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
 grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'
 grep -Fq 'RouterOS update did not change the running version' tools/routeros-auto-update.sh || err 'auto-update lacks post-reboot version-change verification'
 grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
