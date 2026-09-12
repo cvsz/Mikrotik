@@ -21,7 +21,7 @@ required=(
   docs/INDEX.md docs/ARCHITECTURE.md docs/INSTALLATION.md docs/RUNBOOK.md
   docs/NETWORK-RECOVERY.md docs/SSH-HARDENING.md docs/DISASTER-RECOVERY.md
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
-  docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
+  docs/TESTING.md docs/ROUTEROS-LAB-TEST-PLAN.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
   runner/README.md prod/README.md
