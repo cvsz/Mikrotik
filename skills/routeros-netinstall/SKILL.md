@@ -1,25 +1,37 @@
 ---
 name: routeros-netinstall
-description: "MikroTik netinstall-cli for automated RouterOS device flashing. Use when: automating netinstall, writing scripts that invoke netinstall-cli, building netinstall tooling, understanding etherboot/BOOTP/TFTP protocols, working with RouterOS package files (.npk), using modescript or configure script, or when the user mentions netinstall, etherboot, or device flashing."
+description: "MikroTik netinstall-cli for RouterOS device recovery/reinstallation. Use when: automating Netinstall, writing scripts that invoke netinstall-cli, working with etherboot/BOOTP/TFTP, RouterOS .npk packages, mode scripts, configure scripts, or device flashing."
 ---
 
 # RouterOS Netinstall
 
-This skill focuses on **official Netinstall / `netinstall-cli` behavior**. `tikoci/netinstall` is a useful wrapper and source of grounded examples, but it is only one way to drive the tool.
+Netinstall is a destructive recovery/reinstallation mechanism. It reformats the RouterOS system drive and must not be treated as an ordinary package upgrade path.
+
+## Production Safety Rule
+
+For ZeaZDev production hardware, including PoliceDBC:
+
+1. audit the device and verify identity/MAC/architecture;
+2. confirm a local recovery-capable management path;
+3. export configuration and create a trusted backup;
+4. preserve required keys/credentials and record current RouterBOOT/device-mode state;
+5. disconnect the device from unrelated production Layer-2 segments where practical;
+6. do not use `-e` unless the target is explicitly disposable/lab hardware or the operator has approved an intentional empty-configuration rebuild;
+7. verify restored management, WAN/LAN, firewall/NAT, DHCP/DNS, and WireGuard state after reinstall.
+
+**Never run an empty-config Netinstall recipe against PoliceDBC production hardware as a convenience step.** `-e` intentionally removes the current RouterOS configuration after reformatting and can eliminate management access.
 
 ## What `netinstall-cli` Does
 
-Netinstall reinstalls RouterOS onto a device that has booted into **etherboot** mode. The Linux tool, `netinstall-cli`, listens for BOOTP requests and then sends the RouterOS boot image and selected `.npk` packages.
+Netinstall reinstalls RouterOS on a device booted into etherboot mode. The Linux CLI listens for the device, sends the boot image, and installs the selected RouterOS packages.
 
-Grounded behavior from MikroTik docs:
+Grounded operational properties:
 
-- Netinstall **re-formats the system drive**
-- It **does not erase the RouterOS license key**
-- It **does not reset RouterBOOT settings**
-- It works over a direct **Layer 2** path using **BOOTP/DHCP ports** and **TFTP**
-- It requires **root / sudo**
-
-`netinstall-cli` is the Linux command-line variant. The Windows GUI exposes nearly the same core options.
+- the system drive is reformatted;
+- the RouterOS license key is not normally erased by the reformat;
+- RouterBOOT settings are distinct from the RouterOS configuration database;
+- Netinstall operates over a direct Layer-2 path using BOOTP/DHCP/TFTP behavior;
+- root/sudo privileges are required on Linux.
 
 ## Command Syntax
 
@@ -29,78 +41,56 @@ netinstall-cli [-r] [-e] [-b] [-m [-o]] [-f] [-v] [-c]
                [--mac <mac>] {-i <interface> | -a <client-ip>} [PACKAGES...]
 ```
 
-## Flags
+## Important Flags
 
-| Flag | Meaning |
+| Flag | Meaning / risk |
 |---|---|
-| `-r` | Reinstall and apply the default-configuration stage |
-| `-e` | Reinstall with empty configuration |
-| `-b` | Discard the currently installed branding package |
-| `-m` | Enable repeated installs in one run |
-| `-o` | With `-m`, only reinstall a given MAC once per run; by itself it behaves like a normal single install |
-| `-f` | Ignore storage-size checks |
-| `-v` | Verbose output |
-| `-c` | Allow multiple netinstall instances on the same host |
-| `-k <keyfile>` | Install a license key (`.KEY`) |
-| `-s <userscript>` | Install a persistent **configure script** that replaces the RouterOS-supplied default configuration script |
-| `-sm <modescript>` | Install a one-time **mode script** for the first boot after install |
-| `--mac <mac>` | Only respond to this MAC address |
-| `-i <interface>` | Bind to a specific interface |
-| `-a <client-ip>` | Assign a specific client IP; if `-i` is used, server IP is auto-detected |
+| `-r` | reinstall and run the default-configuration stage |
+| `-e` | reinstall with empty configuration; destructive to current config |
+| `-b` | discard installed branding package |
+| `-m` | repeated/multi-device install mode |
+| `-o` | with `-m`, only reinstall a MAC once per run |
+| `-f` | ignore storage-size checks; use only when understood |
+| `-v` | verbose output |
+| `-c` | allow multiple Netinstall instances |
+| `-k <keyfile>` | install a license key |
+| `-s <userscript>` | install persistent custom/default configuration script |
+| `-sm <modescript>` | install a one-time first-boot mode script |
+| `--mac <mac>` | limit response to the intended device MAC |
+| `-i <interface>` | bind to a specific host interface |
+| `-a <client-ip>` | assign a specific client IP |
 
 ## Hard Rules
 
-1. **The system package must be listed first.** Put `routeros-...npk` first in the package list.
-2. **Root privileges are required.** Netinstall uses privileged BOOTP/TFTP ports.
-3. **Multi-arch package sets are allowed.** Netinstall detects the device architecture and only uses matching packages.
-4. **No `-r` and no `-e` means "keep old configuration".** Netinstall downloads the current configuration database, reformats the device, and uploads that configuration back. This does **not** preserve user files or databases such as Dude or User Manager.
+1. Put the RouterOS system package first in the package list.
+2. Verify package architecture against the actual device.
+3. Use a dedicated Layer-2 path and avoid competing DHCP/BOOTP services.
+4. Prefer `--mac` when practical to prevent accidental selection of another device.
+5. No `-r` and no `-e` means Netinstall attempts to preserve the configuration database, but this does not preserve every file/database stored on the device.
+6. Treat `-e` as an intentional reset/rebuild operation, not a standard reinstall option.
 
-## Install Workflow and Script Order
+## Install Workflow
 
-The official workflow is:
-
-1. Put the device into **etherboot**
-2. Run Netinstall with the desired packages and optional scripts
-3. On the next boot, RouterOS runs the initial-configuration steps
-
-For Linux `netinstall-cli`, the important first-boot order is:
-
-1. **Mode script (`-sm`) runs first**
-2. **Custom/default configuration runs after that**
-3. If the mode script changes **device-mode**, the device **reboots immediately** after the mode script completes
-
-That ordering matters: use `-sm` for first-boot state that must happen **before** default or custom configuration, especially **`/system/device-mode`** and **protected-routerboot**.
+1. Identify and back up the device.
+2. Isolate/prepare the Netinstall network.
+3. Put the device into etherboot mode.
+4. Run Netinstall with the intended package set and explicit MAC/interface targeting.
+5. Allow first-boot scripts to complete.
+6. Reconnect only after management and policy verification.
+7. Restore/verify production-specific configuration from trusted evidence as required.
 
 ## Configure Script vs Mode Script
 
-The docs use several names for the persistent `-s` script: **configure script**, **initial configuration**, and the custom default configuration script visible at:
-
-```routeros
-/system/default-configuration/custom-script/print
-```
-
-These two script types are different:
-
 | Feature | Configure script (`-s`) | Mode script (`-sm`) |
 |---|---|---|
-| Purpose | Replace RouterOS-supplied default config script | One-time first-boot actions before config scripts |
-| When it runs | As the device's default-configuration stage | On first boot after install, before custom/default config |
-| Persistence | Stored on device | Auto-removed after execution |
-| Survives upgrades | Yes | No |
-| Later `/system reset-configuration` | Runs again after reset | Does not persist for later resets |
-| Version requirement | Available in RouterOS 7.x docs | Requires **RouterOS 7.22+** and **netinstall-cli 7.22+** |
-| Timeout | 120 seconds | 120 seconds |
-| File format | Regular RouterOS import file (`.rsc`) | Regular RouterOS import file (`.rsc`) |
+| Purpose | replace supplied default configuration stage | one-time first-boot actions before config stage |
+| Persistence | retained as custom default configuration | removed after execution |
+| Reset behavior | can run again after later reset | does not persist for later resets |
+| Typical use | deterministic baseline configuration | early device-mode / boot-state actions |
 
-Additional grounded details:
+If a mode script changes device-mode and forces a reboot, design the sequence so subsequent configuration remains deterministic and recoverable.
 
-- Configure scripts can read `$defconfPassword` and `$defconfWifiPassword` starting with **RouterOS 7.10beta8**
-- MikroTik docs explicitly suggest introducing a **delay** before configure-script execution
-- If a router was netinstalled with a configure script, later `/system reset-configuration` runs that same script again until the device is re-netinstalled without it
-
-## Package URLs and Naming
-
-Use the normal RouterOS download tree:
+## Package URL Pattern
 
 ```text
 https://download.mikrotik.com/routeros/{version}/routeros-{version}-{arch}.npk
@@ -108,102 +98,56 @@ https://download.mikrotik.com/routeros/{version}/all_packages-{arch}-{version}.z
 https://download.mikrotik.com/routeros/{version}/netinstall-{version}.tar.gz
 ```
 
-Use `download.mikrotik.com` first for all release channels. Treat `cdn.mikrotik.com` as a fallback mirror/cache, not the primary version rule.
+Use MikroTik's official download source and verify the selected version and architecture before installation.
 
-### Architecture suffixes
+## Example: Lab Reinstall With Default Configuration
 
-| Architecture | Package form |
-|---|---|
-| `arm` | `routeros-7.22-arm.npk` |
-| `arm64` | `routeros-7.22-arm64.npk` |
-| `mipsbe` | `routeros-7.22-mipsbe.npk` |
-| `mmips` | `routeros-7.22-mmips.npk` |
-| `smips` | `routeros-7.22-smips.npk` |
-| `ppc` | `routeros-7.22-ppc.npk` |
-| `tile` | `routeros-7.22-tile.npk` |
-| `x86` | `routeros-7.22.npk` |
-
-**x86 is the naming exception:** the package filename omits the architecture suffix, but the all-packages ZIP still uses `x86`, for example `all_packages-x86-7.22.zip`.
-
-## Download and Run
-
-Official Linux quick-start pattern:
+The following is a lab example only; replace the interface, package, version, and architecture after verification:
 
 ```sh
-wget https://download.mikrotik.com/routeros/7.22/netinstall-7.22.tar.gz
-tar -xzf netinstall-7.22.tar.gz
-
-sudo ./netinstall-cli -r -i eth0 \
-  routeros-7.22-arm64.npk \
-  container-7.22-arm64.npk
-```
-
-Static IP on the netinstall host is strongly recommended, for example:
-
-```sh
-sudo ifconfig eth0 192.168.88.2/24
-```
-
-## Common Scripted Cases
-
-### Empty config
-
-```sh
-sudo ./netinstall-cli -e -b -i eth0 \
+sudo ./netinstall-cli -r --mac 02:00:00:00:00:10 -i lab0 \
   routeros-7.22-arm64.npk
 ```
 
-### Keep old configuration
+The MAC/interface values are intentionally fictional placeholders.
+
+## Empty Configuration — Disposable/Lab Devices Only
+
+`-e` requests an empty configuration after reinstall. It is appropriate only when the operator explicitly wants a clean rebuild and has accepted the loss of the current configuration.
 
 ```sh
-sudo ./netinstall-cli -i eth0 \
+# LAB / DISPOSABLE TARGET ONLY
+sudo ./netinstall-cli -e --mac 02:00:00:00:00:10 -i lab0 \
   routeros-7.22-arm64.npk
 ```
 
-This keeps the configuration database only; it does **not** preserve files stored on the device.
+Before adapting this example to any real device, complete the production safety checklist above. Do not use this pattern on PoliceDBC unless an approved disaster-recovery rebuild specifically requires it.
 
-### First-boot mode script
+## Keep Existing Configuration Database
 
-```routeros
-/system/device-mode update mode=advanced container=yes
-```
+When the operational goal is reinstalling while attempting to retain the RouterOS configuration database, omit both `-r` and `-e`:
 
 ```sh
-sudo ./netinstall-cli -r -sm modescript.rsc -i eth0 \
-  routeros-7.22-arm64.npk \
-  container-7.22-arm64.npk
+sudo ./netinstall-cli --mac 02:00:00:00:00:10 -i lab0 \
+  routeros-7.22-arm64.npk
 ```
 
-This is the main documented use for `-sm`: set device mode during the first boot without requiring a later manual confirmation flow.
+This still reformats the system drive and does not guarantee preservation of unrelated user files/databases.
 
 ## Etherboot Notes
 
-Devices must be in **etherboot** mode before Netinstall can see them. Common entry methods:
-
-- reset button
-- serial console (`Ctrl+E`)
-- RouterOS setting `boot-device=try-ethernet-once-then-nand`
-
-Netinstall uses BOOTP/DHCP ports, so avoid other DHCP sources on the same segment. The docs also call out two common failure cases:
-
-- some USB Ethernet adapters create an extra link flap and the device is missed
-- DHCP snooping can block the packets unless the Netinstall-facing port is trusted
+Common entry methods include the reset button, serial console, or a one-time Ethernet boot setting. Netinstall can fail when another DHCP source is present, when DHCP snooping blocks the path, or when an adapter causes link flaps.
 
 ## Non-x86 Hosts
 
-`netinstall-cli` is a Linux **i386 ELF** binary.
+When the official Linux Netinstall binary is not native to the host architecture, use a supported compatibility/VM approach and ensure the Netinstall interface is bridged at Layer 2. Do not add unnecessary translation layers on a production recovery path.
 
-| Host | Practical approach |
-|---|---|
-| x86_64 Linux | Run it directly |
-| ARM/ARM64 Linux | Use QEMU user-mode (`qemu-i386-static` or `qemu-i386`) |
-| macOS | Run Linux in a VM with bridged networking |
+## References
 
-This is where `tikoci/netinstall` is useful as a reference wrapper: it automates package download, QEMU-on-ARM, and macOS VM execution, but the underlying Netinstall behavior is still the same `netinstall-cli` flow documented above.
+- Official MikroTik Netinstall documentation: <https://manual.mikrotik.com/>
+- Version/channel patterns: [RouterOS version parsing reference](../routeros-fundamentals/references/version-parsing.md)
+- Upstream wrapper/example project: <https://github.com/tikoci/netinstall>
 
-## Related References
+## ZeaZDev Production Invariant
 
-- Official docs: <https://help.mikrotik.com/docs/spaces/ROS/pages/24805390/Netinstall>
-- Reset behavior for persistent configure scripts: <https://help.mikrotik.com/docs/spaces/ROS/pages/328155/Configuration%2BManagement#ConfigurationManagement-ConfigurationReset>
-- Version/channel and URL patterns: `routeros-fundamentals/references/version-parsing.md`
-- Wrapper/example project: <https://github.com/tikoci/netinstall>
+Netinstall is a recovery/rebuild tool. It is not part of the normal zOS production apply pipeline. zOS production changes continue to use audit, backup, dry-run, recovery access/Safe Mode where appropriate, explicit operator gates, and post-change verification.
