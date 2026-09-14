@@ -6,12 +6,23 @@ This file is a compact infrastructure summary. `ENVIRONMENTS.md` is the canonica
 
 - Device: PoliceDBC MikroTik RB4011iGS+.
 - RouterOS baseline: 7.24.2+.
-- WAN: `ether1 = 192.168.205.251/21`.
-- Upstream gateway: `192.168.200.1`.
-- LAN: `bridge-lan = 192.168.1.1/24`.
-- DHCP pool: `192.168.1.50-192.168.1.199`.
-- WireGuard: `wg-remote = 10.8.0.1/24`, UDP 51820.
-- CORE WireGuard peer: `10.8.0.2/32`.
+- WAN: DHCP client on `ether1`; observed lease `192.168.202.91/21` is runtime evidence only.
+- Upstream gateway observed from DHCP: `192.168.200.1`.
+- LAN: `bridgeLocal = 192.168.1.1/24`.
+- LAN ports: `ether2`-`ether10` and `sfp-sfpplus1`.
+- Dynamic DHCP ranges exclude fixed infrastructure `.100`, `.119`, `.120`, `.122`, `.123`.
+- WireGuard target: `wg-remote = 10.8.0.1/24`, UDP 51820.
+- CORE WireGuard peer target: `10.8.0.2/32`.
+
+## Fixed LAN inventory
+
+| Host | IPv4 | MAC |
+|---|---|---|
+| PoliceDBC-SEA | `192.168.1.100` | `48:4D:7E:D4:3A:C6` |
+| ha-a.zeaz.dev | `192.168.1.119` | `00:0C:29:B7:22:AF` |
+| ha-b.zeaz.dev | `192.168.1.120` | `00:0C:29:72:EF:42` |
+| prod.zeaz.dev | `192.168.1.122` | `00:0C:29:B5:F4:09` |
+| core.zeaz.dev | `192.168.1.123` | pending verification |
 
 ## CORE contract
 
@@ -23,7 +34,7 @@ physical LAN:       192.168.1.0/24 on ens33
 WireGuard network:  10.8.0.0/24 on policedbc
 ~~~
 
-CORE receives its LAN address dynamically. A currently observed DHCP address must not be promoted into a permanent topology invariant without an explicit addressing decision.
+`core.zeaz.dev` is reserved at `192.168.1.123`; its DHCP MAC binding remains intentionally absent until the MAC is verified.
 
 ## Identity model
 
@@ -31,4 +42,4 @@ CORE receives its LAN address dynamically. A currently observed DHCP address mus
 
 ## Legacy warning
 
-The old clean-slate PPPoE / `192.168.10.0/24` / alternate-WireGuard design is historical and incompatible with the current PoliceDBC production baseline.
+The old static-WAN, `bridge-lan`, PPPoE, `192.168.10.0/24`, and alternate-WireGuard assumptions are historical and must not be applied to PoliceDBC production.
