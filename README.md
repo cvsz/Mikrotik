@@ -12,9 +12,16 @@ zOS is the ZeaZDev management and safety control plane for MikroTik RouterOS. Ro
 ## Current verified invariants
 
 - Repository: `cvsz/zos`, default branch `main`.
-- DEV/controller FQDN: `core.zeaz.dev`.
-- PROD FQDN: `prod.zeaz.dev`.
-- Router baseline: MikroTik RB4011iGS+, RouterOS 7.24.2+, LAN `192.168.1.1/24`, WAN `192.168.205.251/21`, upstream `192.168.200.1`.
+- Router: MikroTik RB4011iGS+, RouterOS 7.24.2+.
+- WAN: DHCP client on `ether1`; observed lease `192.168.202.91/21`, upstream gateway `192.168.200.1`. The lease is runtime evidence and must not be hard-coded.
+- LAN: `bridgeLocal = 192.168.1.1/24`; `ether2`-`ether10` and `sfp-sfpplus1` remain LAN bridge ports.
+- `PoliceDBC-SEA = 192.168.1.100`, MAC `48:4D:7E:D4:3A:C6`.
+- `ha-a.zeaz.dev = 192.168.1.119`, MAC `00:0C:29:B7:22:AF`.
+- `ha-b.zeaz.dev = 192.168.1.120`, MAC `00:0C:29:72:EF:42`.
+- `prod.zeaz.dev = 192.168.1.122`, MAC `00:0C:29:B5:F4:09`.
+- `core.zeaz.dev = 192.168.1.123`; DNS/pool reservation is known but DHCP binding waits for a verified MAC.
+- NAT is restricted to `192.168.1.0/24 -> WAN`.
+- DEV/controller FQDN: `core.zeaz.dev`; PROD FQDN: `prod.zeaz.dev`.
 - CORE physical interface: `ens33`; WireGuard interface: `policedbc`.
 - CORE routing contract:
 
@@ -27,7 +34,9 @@ default via 192.168.1.1 dev ens33
 - `192.168.1.0/24` must never be an active `AllowedIPs` route on `policedbc`.
 - CORE SSH is fail-closed toward public-key authentication: password login is disabled by default by `core/install.sh`, and the installer refuses to disable passwords unless an authorized key is already present.
 
-Observed DHCP addresses are runtime evidence, not topology invariants. Do not hard-code a transient DEV LAN address into automation.
+## Reinstall / recovery source of truth
+
+Use `reinstall/OMEGA-RB4011-GOLDEN-REINSTALL.rsc` for a clean RouterOS rebuild. It encodes the verified `ether1` DHCP WAN and `bridgeLocal` LAN topology and the verified fixed host inventory. Always dry-run and maintain a recovery path before live apply.
 
 ## Quick start
 
@@ -44,16 +53,12 @@ make docs
 
 ### Environment examples
 
-zOS now provides scoped environment templates:
-
 - `.env.example` — operator/developer overrides and fail-closed gates;
 - `config/topology.env.example` — authoritative RouterOS/DEV/PROD topology template;
 - `core/.env.example` — CORE network and SSH bootstrap variables;
 - `zOS/.env.example` — zOS runtime/update-policy variables.
 
-Real `.env` files remain ignored. Keep secrets and site-specific values out of Git. The templates are references; zOS does not silently auto-load the root, CORE, or zOS `.env` files.
-
-Operational shell entry points are tracked executable in Git. If a checked-out file unexpectedly returns exit 126/permission denied, diagnose the checkout/filesystem mode instead of adding ad-hoc `chmod` instructions to normal installation.
+Real `.env` files remain ignored. Keep secrets and site-specific values out of Git.
 
 ## Operator workflow
 
@@ -80,39 +85,9 @@ make apply
 
 Automatic RouterOS installation is separately double-gated by `OMEGA_AUTO_ROUTEROS_UPDATE=1` and `OMEGA_ALLOW_ROUTER_REBOOT=1`.
 
-## CORE recovery
-
-For SSH/LAN recovery on CORE:
-
-~~~bash
-cd /home/<repo-owner>/zos
-git pull --ff-only origin main
-sudo ./core/install.sh
-make core-check
-make core-find-conflict
-~~~
-
-Run Git as the repository owner. Do not solve Git dubious-ownership errors by globally trusting a user-owned working tree. See `core/README.md`, `docs/NETWORK-RECOVERY.md`, and `docs/SSH-HARDENING.md`.
-
 ## Documentation map
 
-Start at `docs/INDEX.md`. Key documents:
-
-- `AGENTS.md` — canonical agent and production-safety contract.
-- `docs/ARCHITECTURE.md` — zOS architecture and trust boundaries.
-- `docs/INSTALLATION.md` — supported installation/bootstrap paths.
-- `docs/RUNBOOK.md` — end-to-end operator procedure.
-- `docs/NETWORK-RECOVERY.md` — CORE LAN/WireGuard recovery.
-- `docs/SSH-HARDENING.md` — SSH key-only production baseline.
-- `docs/PRODUCTION-READINESS.md` — repository vs live-runtime acceptance.
-- `docs/GITHUB-OPERATIONS.md` and `docs/GITHUB-SETTINGS.md` — GitHub workflows and repository governance.
-- `docs/TESTING.md` — validation matrix.
-- `docs/RELEASES.md` — release/package procedure.
-- `docs/DISASTER-RECOVERY.md` — rollback and recovery.
-- `SECURITY.md` — security policy and reporting.
-- `SUPPORT.md` — support channels and issue hygiene.
-
-Vendored RouterOS skills under `skills/routeros-*` preserve upstream/provenance semantics and are not rewritten as project-owned documentation. See `skills/README.md` and `THIRD_PARTY_NOTICES.md`.
+Start at `docs/INDEX.md`. Key documents include `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/INSTALLATION.md`, `docs/RUNBOOK.md`, `docs/NETWORK-RECOVERY.md`, `docs/SSH-HARDENING.md`, `docs/PRODUCTION-READINESS.md`, `docs/GITHUB-OPERATIONS.md`, `docs/TESTING.md`, `docs/RELEASES.md`, and `docs/DISASTER-RECOVERY.md`.
 
 ## Repository status is not production status
 
