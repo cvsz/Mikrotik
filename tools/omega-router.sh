@@ -15,14 +15,15 @@ usage() {
 Usage: tools/omega-router.sh <command> [args]
 
 Commands:
-  status                 Read-only router status
-  audit                  Read-only full audit
-  backup                 Export + binary backup, then download export
-  upload <file.rsc>      Upload an RSC only
-  dry-run <file.rsc>     Upload and RouterOS dry-run import
-  apply <file.rsc>       Apply only when OMEGA_ALLOW_LIVE_APPLY=1
-  verify                 Run read-only post-change verification
-  fetch-export <name>    Download <name>.rsc from router
+  status                    Read-only router status
+  audit                     Read-only full audit
+  backup                    Export + encrypted binary backup, then clean router file store
+  upload <file.rsc>         Upload an RSC only
+  dry-run <file.rsc>        Upload a unique temporary RSC, dry-run import, then remove it
+  apply <file.rsc>          Apply only when OMEGA_ALLOW_LIVE_APPLY=1
+  apply-safe <files...>     Apply all files in one interactive RouterOS Safe Mode session
+  verify                    Run read-only post-change verification
+  fetch-export <name>       Download <name>.rsc from router
 EOF
 }
 
@@ -39,14 +40,31 @@ audit() {
 }
 
 backup() {
-  local stamp name
+  local stamp name password password_file
   stamp="$(date +%Y%m%d-%H%M%S)"
   name="omega-policedbc-$stamp"
   mkdir -p "$ROOT/backups"
-  ssh_mt "/export terse file=$name; /system backup save name=$name dont-encrypt=yes"
+  umask 077
+  password="${OMEGA_BACKUP_PASSWORD:-}"
+  if [[ -z "$password" ]]; then
+    command -v openssl >/dev/null 2>&1 || { echo 'openssl is required to generate an encrypted backup password' >&2; exit 1; }
+    password="$(openssl rand -hex 32)"
+  fi
+  [[ "$password" =~ ^[A-Za-z0-9_-]{24,}$ ]] || {
+    echo 'OMEGA_BACKUP_PASSWORD must contain only letters, digits, _ or - and be at least 24 characters' >&2
+    exit 2
+  }
+  password_file="$ROOT/backups/$name.backup.password"
+  printf '%s\n' "$password" > "$password_file"
+  chmod 600 "$password_file"
+
+  ssh_mt "/export terse file=$name; /system backup save name=$name encryption=aes-sha256 password=$password"
   scp "${SSH_OPTS[@]}" "$TARGET:$name.rsc" "$ROOT/backups/$name.rsc"
+  scp "${SSH_OPTS[@]}" "$TARGET:$name.backup" "$ROOT/backups/$name.backup"
+  ssh_mt ":foreach f in=[/file find where name=\"$name.rsc\"] do={ /file remove \$f }; :foreach f in=[/file find where name=\"$name.backup\"] do={ /file remove \$f }"
   echo "Saved $ROOT/backups/$name.rsc"
-  echo "Binary backup remains on router as $name.backup"
+  echo "Saved encrypted binary backup $ROOT/backups/$name.backup"
+  echo "Backup password saved with mode 600 at $password_file"
 }
 
 upload() {
@@ -57,10 +75,17 @@ upload() {
 }
 
 dry_run() {
-  local file="$1" remote
-  remote="$(basename "$file")"
-  upload "$file"
+  local file="$1" remote rc
+  [[ -f "$file" ]] || { echo "File not found: $file" >&2; exit 2; }
+  [[ "$file" == *.rsc ]] || { echo "Only .rsc files are supported" >&2; exit 2; }
+  remote="omega-dry-run-$$-$(basename "$file")"
+  scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
+  set +e
   ssh_mt "/import file-name=$remote verbose=yes dry-run"
+  rc=$?
+  set -e
+  ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+  return "$rc"
 }
 
 apply_file() {
@@ -74,6 +99,50 @@ apply_file() {
   ssh_mt "/import file-name=$remote verbose=yes"
 }
 
+apply_safe() {
+  [[ "${OMEGA_ALLOW_LIVE_APPLY:-0}" == "1" ]] || { echo 'Live apply blocked: OMEGA_ALLOW_LIVE_APPLY=1 is required' >&2; exit 3; }
+  local file remote cmd output session_rc
+  (( $# > 0 )) || { echo 'apply-safe requires at least one .rsc file' >&2; exit 2; }
+  cmd=''
+  for file in "$@"; do
+    [[ -f "$file" && "$file" == *.rsc ]] || { echo "Invalid RSC file: $file" >&2; exit 2; }
+    remote="$(basename "$file")"
+    scp "${SSH_OPTS[@]}" "$file" "$TARGET:$remote"
+    if [[ -n "$cmd" ]]; then cmd+=$'\n'; fi
+    cmd+=":do { /import file-name=$remote verbose=yes } on-error={ :put \"OMEGA_PHASE_FAIL $remote\"; :error \"OMEGA phase failed: $remote\" }"
+  done
+  cmd+=$'\n:put "OMEGA_APPLY_PASS"\n/quit\n'
+
+  set +e
+  output="$( {
+    printf '\030'
+    sleep 1
+    printf '%s' "$cmd"
+  } | ssh -tt "${SSH_OPTS[@]}" "$TARGET" 2>&1 )"
+  session_rc=$?
+  set -e
+
+  printf '%s\n' "$output"
+  for file in "$@"; do
+    remote="$(basename "$file")"
+    ssh_mt ":foreach f in=[/file find where name=\"$remote\"] do={ /file remove \$f }" >/dev/null 2>&1 || true
+  done
+
+  (( session_rc == 0 )) || { echo 'Safe Mode apply session failed' >&2; exit 4; }
+  grep -Fq '[Safe Mode taken]' <<<"$output" || {
+    echo 'RouterOS did not confirm Safe Mode; refusing to treat apply as successful' >&2
+    exit 4
+  }
+  grep -Fq 'OMEGA_APPLY_PASS' <<<"$output" || {
+    echo 'RouterOS did not confirm that all production phases completed successfully' >&2
+    exit 4
+  }
+  ! grep -Fq 'OMEGA_PHASE_FAIL' <<<"$output" || {
+    echo 'At least one production phase failed inside Safe Mode' >&2
+    exit 4
+  }
+}
+
 verify() {
   ssh_mt '/system resource print; /ip address print; /ip route print where dst-address="0.0.0.0/0"; /interface wireguard print detail; /interface wireguard peers print detail; /ip service print; /ping 192.168.200.1 count=3; /ping 1.1.1.1 count=3; :put [/resolve cloudflare.com]'
 }
@@ -85,6 +154,7 @@ case "${1:-}" in
   upload) [[ $# -eq 2 ]] || { usage; exit 2; }; upload "$2" ;;
   dry-run) [[ $# -eq 2 ]] || { usage; exit 2; }; dry_run "$2" ;;
   apply) [[ $# -eq 2 ]] || { usage; exit 2; }; apply_file "$2" ;;
+  apply-safe) shift; apply_safe "$@" ;;
   verify) verify ;;
   fetch-export) [[ $# -eq 2 ]] || { usage; exit 2; }; mkdir -p "$ROOT/backups"; scp "${SSH_OPTS[@]}" "$TARGET:$2.rsc" "$ROOT/backups/$2.rsc" ;;
   *) usage; exit 2 ;;
