@@ -1,5 +1,6 @@
-:log warning "OMEGA BACKUP START"
-/export terse file=omega-policedbc-before
-/system backup save name=omega-policedbc-before dont-encrypt=yes
-:put "BACKUP PASS: omega-policedbc-before.rsc and .backup"
-:log warning "OMEGA BACKUP PASS"
+:log warning "OMEGA BACKUP SNAPSHOT START"
+# Backup creation is performed by tools/omega-router.sh before phase imports.
+# This phase is intentionally a marker only so apply does not create a second
+# router-local binary snapshot.
+:put "BACKUP SNAPSHOT PASS: controller backup completed before import phases"
+:log warning "OMEGA BACKUP SNAPSHOT PASS"
