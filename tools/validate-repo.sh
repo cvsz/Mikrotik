@@ -21,7 +21,7 @@ required=(
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
   tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh
-  tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/README.md
+  tools/install-controller.sh tools/install-update-monitor.sh core/install.sh core/install-ssh-key.sh core/README.md
   zOS/README.md zOS/VERSION zOS/Dockerfile zOS/bin/zos zOS/install.sh
   .github/workflows/validate.yml .github/workflows/zos-build.yml
 )
@@ -32,11 +32,12 @@ for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational 
 
 active=(00-PRECHECK.rsc 10-BACKUP-SNAPSHOT.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc 40-WIREGUARD-SERVICES.rsc 50-FIREWALL-NAT.rsc 60-OBSERVABILITY.rsc 90-EXPORT-EVIDENCE.rsc 99-VERIFY-HEALTH.rsc)
 for f in "${active[@]}"; do
-  if grep -Eiq 'reset-configuration|/ip firewall filter remove \[find\][[:space:]]*$|/ip firewall nat remove \[find\][[:space:]]*$|/ip address remove \[find\][[:space:]]*$|private-key=' "$f"; then
-    err "$f contains a prohibited destructive/key pattern"
+  if grep -Eiq 'reset-configuration|/ip firewall (filter|nat) remove \[find\]( |$)|/ip address remove \[find\]( |$)|private-key=' "$f"; then
+    err "$f contains an unfiltered destructive/key pattern"
   fi
 done
 
+# Verified production topology.
 grep -q 'bridgeLocal' 00-PRECHECK.rsc || err 'precheck missing verified LAN bridge'
 grep -q 'interface="ether1" and status="bound"' 00-PRECHECK.rsc || err 'precheck missing DHCP WAN bound check'
 grep -q '192.168.1.1/24' 00-PRECHECK.rsc || err 'precheck missing LAN gateway'
@@ -47,11 +48,40 @@ grep -q '^ROUTER_LAN_BRIDGE=bridgeLocal$' config/topology.env.example || err 'to
 grep -q '^DEV_LAN_IP=192\.168\.1\.123$' config/topology.env.example || err 'CORE target address missing'
 grep -q '^PROD_LAN_IP=192\.168\.1\.122$' config/topology.env.example || err 'PROD LAN address missing'
 grep -q '^PROD_LAN_MAC=00:0C:29:B5:F4:09$' config/topology.env.example || err 'PROD MAC missing'
+
+# Fixed host inventory and local DNS.
 grep -q '48:4D:7E:D4:3A:C6' 30-DHCP-DNS-NTP.rsc || err 'PoliceDBC reservation missing'
 grep -q '00:0C:29:B7:22:AF' 30-DHCP-DNS-NTP.rsc || err 'HA-A reservation missing'
 grep -q '00:0C:29:72:EF:42' 30-DHCP-DNS-NTP.rsc || err 'HA-B reservation missing'
 grep -q '00:0C:29:B5:F4:09' 30-DHCP-DNS-NTP.rsc || err 'PROD reservation missing'
+grep -q 'prod.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'PROD DNS record missing'
 grep -q 'core.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'CORE DNS record missing'
+grep -q 'ha-a.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-A DNS record missing'
+grep -q 'ha-b.zeaz.dev' 30-DHCP-DNS-NTP.rsc || err 'HA-B DNS record missing'
+
+# Ownership boundaries: active phases must preserve unrelated live state.
+grep -Fq 'refusing implicit WAN/LAN topology takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on ether1 bridge conflicts'
+grep -Fq 'already belongs to another bridge; refusing takeover' 20-NETWORK-NORMALIZE.rsc || err 'network phase must fail closed on bridge ownership conflicts'
+grep -Fq 'Do not delete ether2 DHCP servers' 30-DHCP-DNS-NTP.rsc || err 'DHCP phase must document preservation of unowned DHCP servers'
+grep -Fq 'global upstream DNS servers' 30-DHCP-DNS-NTP.rsc || err 'DNS phase must preserve upstream resolver state'
+grep -Eq '/ip firewall (filter|nat) remove \[find where .*comment~|/ip firewall (filter|nat) remove \[find where .*comment=' 50-FIREWALL-NAT.rsc || err 'firewall cleanup must be restricted to zOS-owned comments'
+if grep -Eq 'core\.zeaz\.internal.*192\.168\.1\.128|192\.168\.1\.128.*core\.zeaz\.internal' 30-DHCP-DNS-NTP.rsc; then err 'DHCP/DNS phase hard-codes obsolete CORE address'; fi
+
+# Backup/apply/update safety.
+grep -Fq 'controller backup completed before import phases' 10-BACKUP-SNAPSHOT.rsc || err 'backup phase must defer backup creation to controller'
+if grep -Eiq 'dont-encrypt=yes|system backup save' 10-BACKUP-SNAPSHOT.rsc; then err 'import phase must not create an unmanaged RouterOS binary backup'; fi
+grep -q '^OMEGA_REQUIRE_DRY_RUN=1$' config/topology.env.example || err 'dry-run gate must be enabled by default'
+grep -q '^OMEGA_REQUIRE_SAFE_MODE=1$' config/topology.env.example || err 'Safe Mode gate must be enabled by default'
+grep -q 'OMEGA_REQUIRE_DRY_RUN' tools/deploy-phases.sh || err 'deploy script does not enforce dry-run gate'
+grep -q 'OMEGA_REQUIRE_SAFE_MODE' tools/deploy-phases.sh || err 'deploy script does not enforce Safe Mode gate'
+grep -Fq '[Safe Mode taken]' tools/omega-router.sh || err 'RouterOS apply helper does not require Safe Mode confirmation'
+grep -Fq 'OMEGA_APPLY_PASS' tools/omega-router.sh || err 'RouterOS apply helper does not require phase success confirmation'
+grep -Fq 'dont-encrypt=yes' tools/omega-router.sh && err 'router backup must not disable encryption'
+grep -Fq 'encryption=aes-sha256' tools/omega-router.sh || err 'router backup must explicitly request AES-SHA256 encryption'
+grep -Fq '/system package update set channel=' tools/routeros-auto-update.sh && err 'update-check must not persistently set RouterOS update channel'
+grep -Fq 'RouterOS update did not change the running version' tools/routeros-auto-update.sh || err 'auto-update lacks post-reboot version-change verification'
+
+# Fail-closed environment defaults.
 grep -q '^PROD_ALLOW_PASSWORD=no$' prod/.env.example || err 'PROD SSH password authentication must fail closed in template'
 grep -q '^PROD_ALLOW_DEPLOY=0$' prod/.env.example || err 'PROD live deploy must fail closed in template'
 grep -q '^OMEGA_ALLOW_LIVE_APPLY=0$' .env.example || err 'root .env.example must fail closed for live apply'
@@ -69,6 +99,12 @@ grep -q '^OMEGA_ALLOW_ROUTER_REBOOT=0$' config/topology.env.example || err 'safe
 
 if grep -Eiq '192\.168\.205\.251|bridge-lan|core\.zeaz\.internal|192\.168\.1\.128' 00-PRECHECK.rsc 20-NETWORK-NORMALIZE.rsc 30-DHCP-DNS-NTP.rsc config/topology.env.example README.md ENVIRONMENTS.md; then
   err 'active production sources still contain legacy topology values'
+fi
+
+if [[ -f core/install-ssh-key.sh ]]; then
+  grep -Fq 'ssh-keygen -y' core/install-ssh-key.sh || err 'SSH installer must validate private key material with ssh-keygen -y'
+  grep -Fq 'ssh-keygen -lf' core/install-ssh-key.sh || err 'SSH installer must validate public key fingerprint'
+  ! grep -Eq 'cvsz@192\.168\.1\.123|192\.168\.1\.123' core/install-ssh-key.sh || err 'SSH installer contains a hard-coded target address'
 fi
 
 if grep -Eiq 'allow-unauthenticated|trusted[[:space:]]*=[[:space:]]*yes|Acquire::AllowInsecureRepositories[[:space:]]*=[[:space:]]*true' core/install.sh; then err 'core/install.sh contains an APT signature-bypass pattern'; fi
