@@ -1,14 +1,18 @@
 :log warning "OMEGA FIREWALL NAT START"
 
+# zOS owns only rules carrying ZEAZ-PoliceDBC/PoliceDBC comments. Existing
+# unrelated rules in these named chains are preserved; conflicts fail closed.
 :if ([:len [/ip firewall filter find where chain="input" and jump-target="ZEAZ-PoliceDBC-INPUT" and comment="ZEAZ-PoliceDBC: INPUT POLICY"]] = 0) do={
+    :if ([:len [/ip firewall filter find where chain="input" and jump-target="ZEAZ-PoliceDBC-INPUT"]] > 0) do={ :error "input already jumps to ZEAZ-PoliceDBC-INPUT without zOS ownership" }
     /ip firewall filter add chain=input action=jump jump-target=ZEAZ-PoliceDBC-INPUT place-before=0 comment="ZEAZ-PoliceDBC: INPUT POLICY"
 }
 :if ([:len [/ip firewall filter find where chain="forward" and jump-target="ZEAZ-PoliceDBC-FORWARD" and comment="ZEAZ-PoliceDBC: FORWARD POLICY"]] = 0) do={
+    :if ([:len [/ip firewall filter find where chain="forward" and jump-target="ZEAZ-PoliceDBC-FORWARD"]] > 0) do={ :error "forward already jumps to ZEAZ-PoliceDBC-FORWARD without zOS ownership" }
     /ip firewall filter add chain=forward action=jump jump-target=ZEAZ-PoliceDBC-FORWARD place-before=0 comment="ZEAZ-PoliceDBC: FORWARD POLICY"
 }
 
-/ip firewall filter remove [find where chain="ZEAZ-PoliceDBC-INPUT"]
-/ip firewall filter remove [find where chain="ZEAZ-PoliceDBC-FORWARD"]
+/ip firewall filter remove [find where chain="ZEAZ-PoliceDBC-INPUT" and comment~"^PoliceDBC:"]
+/ip firewall filter remove [find where chain="ZEAZ-PoliceDBC-FORWARD" and comment~"^PoliceDBC:"]
 
 /ip firewall filter
 add chain=ZEAZ-PoliceDBC-INPUT action=accept connection-state=established,related,untracked comment="PoliceDBC: INPUT Established Related"
@@ -29,9 +33,10 @@ add chain=ZEAZ-PoliceDBC-FORWARD action=accept src-address=192.168.1.0/24 dst-ad
 add chain=ZEAZ-PoliceDBC-FORWARD action=drop comment="PoliceDBC: FORWARD DEFAULT DENY"
 
 :if ([:len [/ip firewall nat find where chain="srcnat" and jump-target="ZEAZ-PoliceDBC-SRCNAT" and comment="ZEAZ-PoliceDBC: SRCNAT POLICY"]] = 0) do={
+    :if ([:len [/ip firewall nat find where chain="srcnat" and jump-target="ZEAZ-PoliceDBC-SRCNAT"]] > 0) do={ :error "srcnat already jumps to ZEAZ-PoliceDBC-SRCNAT without zOS ownership" }
     /ip firewall nat add chain=srcnat action=jump jump-target=ZEAZ-PoliceDBC-SRCNAT place-before=0 comment="ZEAZ-PoliceDBC: SRCNAT POLICY"
 }
-/ip firewall nat remove [find where chain="ZEAZ-PoliceDBC-SRCNAT"]
+/ip firewall nat remove [find where chain="ZEAZ-PoliceDBC-SRCNAT" and comment~"^PoliceDBC:"]
 /ip firewall nat add chain=ZEAZ-PoliceDBC-SRCNAT action=masquerade src-address=192.168.1.0/24 out-interface-list=WAN comment="PoliceDBC: NAT LAN to WAN"
 /ip firewall nat add chain=ZEAZ-PoliceDBC-SRCNAT action=masquerade src-address=10.8.0.0/24 out-interface-list=WAN comment="PoliceDBC: NAT VPN to WAN"
 
