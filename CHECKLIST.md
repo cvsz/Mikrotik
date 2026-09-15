@@ -14,6 +14,7 @@ Use this checklist for repository merges and live infrastructure changes. Reposi
 - [ ] Operational scripts that are executed directly retain executable Git mode.
 - [ ] Relevant documentation and `CHANGELOG.md` are updated.
 - [ ] PR template safety/recovery questions are answered.
+- [ ] Optional Cloudflare changes have an approved connector, origin, Access policy, and rollback test; no management service is public.
 
 ## CORE
 

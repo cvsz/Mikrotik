@@ -1,5 +1,7 @@
 # zOS for MikroTik
 
+![zOS infrastructure safety control plane](assets/zos-banner-01.jpg)
+
 [![Validate RouterOS Stack](https://github.com/cvsz/zos/actions/workflows/validate.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/validate.yml)
 [![Build zOS](https://github.com/cvsz/zos/actions/workflows/zos-build.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/zos-build.yml)
 [![Evidence Validation](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml/badge.svg)](https://github.com/cvsz/zos/actions/workflows/evidence-validation.yml)
@@ -57,8 +59,11 @@ make docs
 - `config/topology.env.example` — authoritative RouterOS/DEV/PROD topology template;
 - `core/.env.example` — CORE network and SSH bootstrap variables;
 - `zOS/.env.example` — zOS runtime/update-policy variables.
+- `cloudflare/config.env.example` — optional, secret-free Cloudflare connector/origin template.
 
 Real `.env` files remain ignored. Keep secrets and site-specific values out of Git.
+
+Optional Cloudflare publication and Access controls are documented in [`cloudflare/README.md`](cloudflare/README.md); they do not replace RouterOS management or recovery paths.
 
 ## Operator workflow
 

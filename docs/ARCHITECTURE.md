@@ -15,6 +15,7 @@ zOS is a controller-side safety and automation layer around MikroTik RouterOS. I
 7. **Verify** — independent state/readiness checks.
 8. **Package** — tarball and controller-side OCI image via GitHub Actions/GHCR.
 9. **Recover** — CORE network/SSH and RouterOS disaster-recovery procedures.
+10. **Publish (optional)** — Cloudflare DNS/Access/Tunnel in front of explicitly approved private origins; this is not RouterOS control.
 
 ## Trust boundaries
 
@@ -26,6 +27,7 @@ zOS is a controller-side safety and automation layer around MikroTik RouterOS. I
 | GitHub-hosted Actions | unprivileged validation/build | no live production credentials or apply |
 | Self-hosted `zOS-Runner` | privileged local automation surface | trusted workloads only; single listener |
 | GHCR | distribution of controller image | package permissions and immutable release references |
+| Cloudflare DNS/Access/Tunnel | external publication and identity boundary | outbound approved connector, Access policy, no RouterOS management exposure, independent rollback |
 
 ## Core data flow
 

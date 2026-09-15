@@ -63,6 +63,8 @@ No GitHub Pages publication workflow is currently part of the documented product
 
 Keep `zOS-Runner` restricted to trusted repository workloads and a single listener session. See `docs/SELF_HOSTED_RUNNER.md`.
 
+Cloudflare credentials must be stored as protected host/runtime secrets, never repository files or ordinary CI variables. Cloudflare deployment workflows are not enabled by this repository documentation and require separate review.
+
 ## Community health
 
 Keep `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, issue templates, pull-request template, and CODEOWNERS current.
