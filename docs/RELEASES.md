@@ -15,6 +15,8 @@
 7. record release notes and known limitations;
 8. keep live RouterOS deployment separate from the release build.
 
+The complete local gate is `make all`. To build and publish the signed release tag and GitHub release for the version in `zOS/VERSION`, use `RELEASE_CONFIRM=1 make release` from the reviewed `main` commit. This requires authenticated `git push` and `gh`; it does not perform RouterOS or Cloudflare changes.
+
 ## Artifacts
 
 `build-zos` produces:
