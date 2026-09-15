@@ -34,6 +34,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `runner/README.md` | Windows runner VM local environment reference |
 | `docs/zOS.md` | CLI/control-plane operations |
 | `prod/README.md` | production host inventory and discovery procedure |
+| `cloudflare/README.md` | optional Cloudflare publication/access boundary and safety gates |
 
 ## GitHub, test, release, and lifecycle
 
@@ -58,6 +59,7 @@ This file defines the documentation map and ownership model for `cvsz/zos`.
 | `zOS/.env.example` | zOS runtime/update-policy options |
 | `prod/.env.example` | PROD host identity/bootstrap reference |
 | `runner/.env.example` | Windows `zeaz` / `zOS-Runner` identity and trust posture |
+| `cloudflare/config.env.example` | secret-free Cloudflare connector/origin template |
 
 Templates must remain secret-free and fail-closed. Real `.env` files are local-only.
 

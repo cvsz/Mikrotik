@@ -17,6 +17,7 @@ required=(
   docs/NETWORK-RECOVERY.md docs/SSH-HARDENING.md docs/DISASTER-RECOVERY.md
   docs/PRODUCTION-READINESS.md docs/GITHUB-OPERATIONS.md docs/GITHUB-SETTINGS.md
   docs/TESTING.md docs/RELEASES.md docs/ROADMAP.md docs/LICENSING.md
+  cloudflare/README.md cloudflare/config.env.example
   .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS
   .env.example core/.env.example zOS/.env.example runner/.env.example prod/.env.example config/topology.env.example
   runner/README.md prod/README.md tools/validate-docs.py tools/omega-router.sh tools/deploy-phases.sh
@@ -26,6 +27,11 @@ required=(
   .github/workflows/validate.yml .github/workflows/zos-build.yml
 )
 for f in "${required[@]}"; do [[ -f "$f" ]] || err "missing required file: $f"; done
+
+grep -q '^CF_CONNECTOR_HOST=core\.zeaz\.dev$' cloudflare/config.env.example || err 'Cloudflare connector template is missing the approved CORE host'
+grep -q 'Cloudflare' cloudflare/README.md || err 'Cloudflare integration documentation is missing'
+if grep -Eiq '(^|_)(TOKEN|SECRET|PASSWORD|PRIVATE_KEY)=.+' cloudflare/config.env.example; then err 'Cloudflare template contains a populated credential'; fi
+grep -Fq 'cloudflare/config.env' .gitignore || err 'populated Cloudflare config is not ignored'
 
 executables=(core/install.sh tools/validate-repo.sh tools/omega-router.sh tools/deploy-phases.sh tools/core-network-repair.sh tools/routeros-auto-update.sh tools/e2e-check.sh tools/install-controller.sh tools/install-update-monitor.sh zOS/bin/zos zOS/install.sh)
 for f in "${executables[@]}"; do [[ ! -f "$f" || -x "$f" ]] || err "operational entry point is not executable: $f"; done

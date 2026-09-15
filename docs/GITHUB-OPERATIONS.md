@@ -29,6 +29,8 @@ Normal workflows must not receive production router credentials or perform live 
 
 PRs must state scope, risk, validation, documentation impact, recovery/rollback, and live-system impact. Production-sensitive changes must explain how management access is preserved.
 
+For Cloudflare changes, the PR must identify each hostname, private origin, connector host, Access requirement, and whether live DNS/Tunnel/Access state changed. A repository check does not verify those external systems. PR #29 (`feat/cloudflare-mikrotik-integration`) is an open documentation/template change until GitHub reports otherwise.
+
 ## Self-hosted runner
 
 `zOS-Runner` is trusted infrastructure. Use labels `[self-hosted, Windows, X64]`; never send untrusted fork code to it. Keep one listener session.

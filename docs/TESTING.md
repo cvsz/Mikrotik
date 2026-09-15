@@ -31,6 +31,10 @@ make core-find-conflict
 
 After network/SSH recovery, include an external SSH key-login test and a reboot persistence test.
 
+## Optional Cloudflare boundary
+
+For Cloudflare changes, validate the secret-free template and local links, then separately verify connector persistence, tunnel connectivity, hostname-to-origin routing, Access enforcement, origin health, and recovery when Cloudflare is unavailable. Do not use credentials or live RouterOS mutation in repository CI.
+
 ## Router read-only/runtime
 
 ~~~bash

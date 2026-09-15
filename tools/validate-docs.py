@@ -17,6 +17,7 @@ REQUIRED = [
     'docs/PRODUCTION-READINESS.md', 'docs/PRODUCTION-MIGRATION.md',
     'docs/GITHUB-OPERATIONS.md', 'docs/GITHUB-SETTINGS.md', 'docs/TESTING.md',
     'docs/RELEASES.md', 'docs/ROADMAP.md', 'docs/LICENSING.md',
+    'cloudflare/README.md', 'cloudflare/config.env.example',
     '.github/PULL_REQUEST_TEMPLATE.md', '.github/CODEOWNERS',
 ]
 

@@ -2,6 +2,16 @@
 
 Production readiness is an evidence state, not a label inferred from CI.
 
+## Cloudflare-ready (optional)
+
+- connector host is approved and its outbound-only tunnel is healthy;
+- each public hostname maps to an explicitly approved private origin;
+- Access policy is tested before an administrative application is published;
+- RouterOS management services remain LAN/VPN-only and local recovery is proven;
+- DNS, tunnel, Access, origin, and rollback evidence is recorded separately from RouterOS evidence.
+
+Cloudflare configuration alone is not production acceptance and must not be used to infer RouterOS health.
+
 ## Repository-ready
 
 A commit/PR is repository-ready when:
