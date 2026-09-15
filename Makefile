@@ -1,6 +1,19 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate docs evidence security-evidence status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
+.PHONY: all validate docs evidence security-evidence release-check release-package release status audit backup dry-run apply verify e2e core-status core-check core-repair core-find-conflict zos zos-doctor zos-install update-check update-notify update-auto update-monitor-install
+
+all: validate docs evidence security-evidence zos
+
+release-check: all
+	@test -s zOS/VERSION
+	@grep -Fq '## Unreleased' CHANGELOG.md
+	@echo "Release checks passed for zOS $$(tr -d '[:space:]' < zOS/VERSION)"
+
+release-package: release-check
+	@set -euo pipefail; version="$$(tr -d '[:space:]' < zOS/VERSION)"; stage="dist/zos-mikrotik-$$version"; rm -rf "$$stage"; mkdir -p "$$stage"; tar --exclude='./.git' --exclude='./dist' --exclude='./artifacts' -cf - . | tar -C "$$stage" -xf -; tar -C dist -czf "dist/zos-mikrotik-$$version.tar.gz" "zos-mikrotik-$$version"; sha256sum "dist/zos-mikrotik-$$version.tar.gz" > "dist/zos-mikrotik-$$version.tar.gz.sha256"; echo "Built dist/zos-mikrotik-$$version.tar.gz"
+
+release: release-package
+	@set -euo pipefail; version="$$(tr -d '[:space:]' < zOS/VERSION)"; tag="zos-v$$version"; test "$${RELEASE_CONFIRM:-0}" = 1 || { echo "Refusing release: rerun with RELEASE_CONFIRM=1" >&2; exit 2; }; git rev-parse "$$tag" >/dev/null 2>&1 || git tag -s "$$tag" -m "zOS $$version"; git push origin "$$tag"; gh release create "$$tag" "dist/zos-mikrotik-$$version.tar.gz" "dist/zos-mikrotik-$$version.tar.gz.sha256" --title "zOS $$version" --generate-notes
 
 validate:
 	./tools/validate-repo.sh
